@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Run only in disposable emulator job, after reviewed overlay/build/boot steps.
+set -euo pipefail
+: "${RUNNER_TEMP:?}"
+: "${ANDROID_HOME:?}"
+: "${ANDROID_SERIAL:?}"
+test "$ANDROID_SERIAL" = emulator-5554
+target=com.vanipy.saku.synthetic
+tests=com.vanipy.saku.synthetic.test
+cleanup() {
+  adb uninstall "$tests" || true
+  adb shell pm clear "$target" || true
+  adb uninstall "$target" || true
+}
+trap cleanup EXIT
+cd "$RUNNER_TEMP/keepassdx-upstream"
+export GRADLE_USER_HOME="$RUNNER_TEMP/saku-ui-gradle"
+./gradlew --no-daemon --console=plain --max-workers=2 -PdummyPixelCapture=true \
+  :dummy-ui:assembleDebug :dummy-ui:assembleDebugAndroidTest
+app=dummy-ui/build/outputs/apk/debug/dummy-ui-debug.apk
+testapk=dummy-ui/build/outputs/apk/androidTest/debug/dummy-ui-debug-androidTest.apk
+test -f "$app"
+test -f "$testapk"
+python3 - <<'NATIVE'
+import zipfile
+with zipfile.ZipFile('dummy-ui/build/outputs/apk/debug/dummy-ui-debug.apk') as apk:
+    libs=[n for n in apk.namelist() if n.startswith('lib/x86_64/') and n.endswith('.so')]
+    if not libs: raise SystemExit('Missing x86_64 native library packaging')
+    print('Packaged x86_64 libraries:', ', '.join(libs))
+NATIVE
+"$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$app" > "$RUNNER_TEMP/dummy-ui-badging.txt"
+if grep -q '^uses-permission' "$RUNNER_TEMP/dummy-ui-badging.txt"; then
+  printf '%s\n' 'Unexpected merged target permission'
+  exit 1
+fi
+grep -q "^package: name='$target' " "$RUNNER_TEMP/dummy-ui-badging.txt"
+grep -q "^sdkVersion:'26'" "$RUNNER_TEMP/dummy-ui-badging.txt"
+grep -q '^application-debuggable' "$RUNNER_TEMP/dummy-ui-badging.txt"
+# Fresh AVD only; no preexisting app may be reused to mask state differences.
+if adb shell pm path "$target" | grep -q '^package:'; then
+  printf '%s\n' 'Unexpected installed synthetic target'
+  exit 1
+fi
+adb install "$app"
+adb install "$testapk"
+# Direct instrumentation, NOT connectedAndroidTest: do not uninstall before pixels copy.
+# Pipe status does not prove instrumentation passed; parse all final method statuses below.
+adb shell am instrument -w -r \
+  -e class com.kunzisoft.keepass.tests.saku.DummyImportActivityTest \
+  "$tests/androidx.test.runner.AndroidJUnitRunner" | tee "$RUNNER_TEMP/dummy-ui-instrumentation.txt"
+python3 - <<'PY'
+import collections, os, pathlib, re
+text = (pathlib.Path(os.environ['RUNNER_TEMP'])/'dummy-ui-instrumentation.txt').read_text()
+expected = {
+ 'previewThenCancelKeepsApproveDisabledUntilFreshReview',
+ 'approveRequiresPreviewThenShowsReopenedFileResult',
+ 'explicitLockHidesPreviewAndRequiresFreshUnlock',
+ 'backgroundEndsSessionInsteadOfResumingUnlockedPreview',
+}
+status = {}; passed = collections.Counter(); started = collections.Counter()
+for line in text.splitlines():
+    line = line.rstrip('\r')
+    if line.startswith('INSTRUMENTATION_STATUS: '):
+        key, sep, value = line[len('INSTRUMENTATION_STATUS: '):].partition('=')
+        if sep: status[key] = value
+    elif line.startswith('INSTRUMENTATION_STATUS_CODE: '):
+        code = int(line.rsplit(': ',1)[1])
+        name = status.get('test'); klass = status.get('class')
+        if code not in (0,1): raise SystemExit('Failed/skipped/ignored instrumentation method')
+        if name not in expected or klass != 'com.kunzisoft.keepass.tests.saku.DummyImportActivityTest':
+            raise SystemExit('Unexpected instrumentation method/class')
+        (started if code == 1 else passed)[name] += 1
+        status = {}
+if (set(passed) != expected or set(started) != expected
+    or any(n != 1 for n in passed.values()) or any(n != 1 for n in started.values())
+    or not re.search(r'^INSTRUMENTATION_CODE: -1\s*$',text,re.M)
+    or 'INSTRUMENTATION_FAILED:' in text or 'INSTRUMENTATION_ABORTED:' in text):
+    raise SystemExit('Missing/partial instrumentation evidence')
+print('Exact four UI wiring methods completed, no skipped methods. Pixels still need inspection.')
+PY
+# Only six exact filenames are read. No app database, vault, key or logs are exported.
+pixels="$RUNNER_TEMP/saku-ui-pixels"
+mkdir "$pixels"
+for name in 01-locked 02-preview 03-cancelled 04-approved 05-relocked 06-launcher-after-session-ended; do
+  adb exec-out run-as "$target" cat "cache/dummy-ui-pixels/$name.png" > "$pixels/$name.png"
+done
+# Ordinary job logs only, no upload-artifact/cache and no billed storage dependency.
+# Bounded PNG blocks can be recovered from authenticated run logs before app uninstall.
+python3 - <<'PY'
+import base64, hashlib, os, pathlib, struct
+root = pathlib.Path(os.environ['RUNNER_TEMP'])/'saku-ui-pixels'
+for path in sorted(root.glob('*.png')):
+    raw = path.read_bytes()
+    if not 64 <= len(raw) <= 1024*1024: raise SystemExit('PNG outside fixed 1MiB bound')
+    if raw[:8] != b'\x89PNG\r\n\x1a\n' or raw[12:16] != b'IHDR': raise SystemExit('Not a PNG')
+    width,height = struct.unpack('>II',raw[16:24])
+    if not (1 <= width <= 2560 and 1 <= height <= 2560): raise SystemExit('Unexpected image size')
+    name=path.name; sha=hashlib.sha256(raw).hexdigest()
+    print(f'SAKU_DUMMY_PNG_BEGIN {name} {len(raw)} {sha} {width} {height}', flush=True)
+    encoded=base64.b64encode(raw).decode('ascii')
+    for start in range(0,len(encoded),120): print('SAKU_DUMMY_PNG_DATA '+encoded[start:start+120])
+    print('SAKU_DUMMY_PNG_END '+name, flush=True)
+PY
+printf '%s\n' 'Six dummy PNGs exported to ordinary logs. Actual visual inspection remains required.' >> "$GITHUB_STEP_SUMMARY"

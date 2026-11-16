@@ -1,0 +1,178 @@
+name: Saku synthetic UI wiring and pixels (public dummy only)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: saku-dummy-ui-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  dummy-ui:
+    if: github.event.repository.private == false && github.repository == 'irvan-putra/saku'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      UPSTREAM_REV: 77ecfa8654a5bd0d79d512f8fa71c0af8a29b554
+      OVERLAY_REV: ${{ github.sha }}
+      OVERLAY_DIR: prototypes/keepassdx-dummy-ui
+    steps:
+      - name: Check out this exact reviewed Saku source revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Fetch pinned upstream and verify exact isolated overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = irvan-putra/saku
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$OVERLAY_REV" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain)"
+          cd "$GITHUB_WORKSPACE"
+          sha256sum --check <<'HASHES'
+          3c7a11724fc409ef21741102b506e5f44207a66c0eb8dadff1134f8c692b5c48  prototypes/keepassdx-dummy-ui/AndroidManifest.xml
+          ff98e6a42b87ceae6bce74b990a4fda9e6d50c8350b279c82e21fab840308524  prototypes/keepassdx-dummy-ui/DummyImportActivity.kt
+          abebdafdeb2c0e25625fbc7d0546387d5595089d61a469a7505989ea36a42bed  prototypes/keepassdx-dummy-ui/DummyImportActivityTest.kt
+          e3b5242b5f83aa1dd0f0ebd8d6d1aafcc402818e67644582e2bef9cca3cc77c7  prototypes/keepassdx-dummy-ui/DummyImportFixture.kt
+          ccbca8a85d1038649878c889b219a7c60fba825efb0a18463c1364f23aa22068  prototypes/keepassdx-dummy-ui/build.gradle.kts
+          2885459666604aeb83948930b18a17d4c0543c65967e7cc73f0722c5ead1defd  prototypes/keepassdx-dummy-ui/run-dummy-ui.sh
+          HASHES
+          for f in AndroidManifest.xml DummyImportActivity.kt DummyImportActivityTest.kt DummyImportFixture.kt build.gradle.kts run-dummy-ui.sh; do
+            git ls-files --error-unmatch "$OVERLAY_DIR/$f" >/dev/null
+          done
+          cd "$RUNNER_TEMP"
+          mkdir keepassdx-upstream
+          cd keepassdx-upstream
+          export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0
+          git init --quiet
+          git -c credential.helper= fetch --no-tags --depth=1 https://github.com/Kunzisoft/KeePassDX.git "$UPSTREAM_REV"
+          git checkout --quiet --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$UPSTREAM_REV"
+          test -z "$(git status --porcelain)"
+          test ! -e dummy-ui
+          if grep -Fqx 'include(":dummy-ui")' settings.gradle.kts; then
+            echo 'dummy-ui already included in upstream settings' >&2; exit 1
+          fi
+          mkdir -p dummy-ui/src/main/java/com/kunzisoft/keepass/tests/saku dummy-ui/src/main
+          src="$GITHUB_WORKSPACE/$OVERLAY_DIR"
+          cp "$src/AndroidManifest.xml" dummy-ui/src/main/AndroidManifest.xml
+          cp "$src/DummyImportActivity.kt" dummy-ui/src/main/java/com/kunzisoft/keepass/tests/saku/
+          cp "$src/DummyImportFixture.kt" dummy-ui/src/main/java/com/kunzisoft/keepass/tests/saku/
+          cp "$src/build.gradle.kts" dummy-ui/build.gradle.kts
+          mkdir -p dummy-ui/src/androidTest/java/com/kunzisoft/keepass/tests/saku
+          cp "$src/DummyImportActivityTest.kt" dummy-ui/src/androidTest/java/com/kunzisoft/keepass/tests/saku/DummyImportActivityTest.kt
+          python3 - <<'PY'
+          from pathlib import Path
+          settings=Path('settings.gradle.kts')
+          original=settings.read_text()
+          if not original.endswith('\n'):
+              raise SystemExit('Unexpected upstream settings EOF')
+          settings.write_text(original + 'include(":dummy-ui")\n')
+          PY
+          python3 - <<'PY'
+          import pathlib, subprocess
+          root=pathlib.Path('.')
+          s=subprocess.check_output(['git','show',f'{__import__("os").environ["UPSTREAM_REV"]}:settings.gradle.kts'],text=True)
+          actual=(root/'settings.gradle.kts').read_text()
+          if actual != s + 'include(":dummy-ui")\n':
+              raise SystemExit('Settings change is not only the one dummy-ui include')
+          if actual.count('include(":dummy-ui")') != 1:
+              raise SystemExit('Expected exactly one dummy-ui include')
+          if (root/'database/build.gradle.kts').read_bytes() != subprocess.check_output(['git','show',f'{__import__("os").environ["UPSTREAM_REV"]}:database/build.gradle.kts']):
+              raise SystemExit('Upstream database build file changed')
+          if (root/'app').exists() is False:
+              raise SystemExit('Upstream app missing')
+          PY
+          git diff --check
+          python3 - <<'PY'
+          import subprocess
+          expected={' M settings.gradle.kts','?? dummy-ui/'}
+          actual=set(subprocess.check_output(['git','status','--porcelain'],text=True).splitlines())
+          if actual != expected: raise SystemExit(f'Unexpected upstream worktree: {actual!r}')
+          changed=subprocess.check_output(['git','diff','--name-only'],text=True).splitlines()
+          if changed != ['settings.gradle.kts']: raise SystemExit(f'Unexpected tracked changes: {changed!r}')
+          added=[line[1:] for line in subprocess.check_output(['git','diff','--unified=0','--','settings.gradle.kts'],text=True).splitlines() if line.startswith('+') and not line.startswith('+++')]
+          if added != ['include(":dummy-ui")']: raise SystemExit(f'Unexpected settings additions: {added!r}')
+          if any('multiDexEnabled' in p for p in changed): raise SystemExit('No storage multidex overlay allowed')
+          PY
+          printf 'Saku overlay revision `%s`; KeePassDX upstream `%s`; isolated :dummy-ui include only.\n' "$OVERLAY_REV" "$UPSTREAM_REV" >> "$GITHUB_STEP_SUMMARY"
+      - name: Install bounded Android toolchain and require KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -x "$JAVA_HOME_17_X64/bin/java"
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          printf 'JAVA_HOME=%s\n' "$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          printf '%s/bin\n' "$JAVA_HOME_17_X64" >> "$GITHUB_PATH"
+          export JAVA_HOME="$JAVA_HOME_17_X64" PATH="$JAVA_HOME_17_X64/bin:$PATH"
+          java -version
+          set +o pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          status=${PIPESTATUS[1]}
+          set -o pipefail
+          test "$status" -eq 0
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'platforms;android-36' 'build-tools;36.0.0' 'ndk;25.2.9519653' \
+            'cmake;3.22.1' 'platform-tools' 'emulator' \
+            'system-images;android-34;default;x86_64'
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          "$ANDROID_HOME/emulator/emulator" -accel-check
+      - name: Boot fresh API 34 x86_64 AVD and run exactly four dummy UI tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/saku-ui-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd \
+            --name saku_dummy_ui --package 'system-images;android-34;default;x86_64'
+          emulator -avd saku_dummy_ui -port 5554 -no-window -no-audio -no-snapshot \
+            -wipe-data -no-boot-anim -gpu swiftshader_indirect -accel on \
+            > "$RUNNER_TEMP/saku-ui-emulator.log" 2>&1 &
+          emulator_pid=$!
+          cleanup() {
+            adb -s emulator-5554 emu kill || true
+            kill "$emulator_pid" 2>/dev/null || true
+            wait "$emulator_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          export ANDROID_SERIAL=emulator-5554
+          deadline=$((SECONDS + 300))
+          while [ "$(adb -s "$ANDROID_SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" != 1 ]; do
+            if ! kill -0 "$emulator_pid" 2>/dev/null || [ "$SECONDS" -ge "$deadline" ]; then
+              tail -60 "$RUNNER_TEMP/saku-ui-emulator.log"; exit 1
+            fi
+            sleep 2
+          done
+          while :; do
+            pm_path=$(adb -s "$ANDROID_SERIAL" shell pm path android 2>/dev/null | tr -d '\r' || true)
+            [[ "$pm_path" == package:* ]] && break
+            if ! kill -0 "$emulator_pid" 2>/dev/null || [ "$SECONDS" -ge "$deadline" ]; then
+              echo 'Package manager did not become ready within five minutes.' >&2
+              tail -60 "$RUNNER_TEMP/saku-ui-emulator.log"; exit 1
+            fi
+            sleep 2
+          done
+          test "$(adb -s "$ANDROID_SERIAL" shell getprop ro.build.version.sdk | tr -d '\r')" = 34
+          test "$(adb -s "$ANDROID_SERIAL" shell getprop ro.product.cpu.abi | tr -d '\r')" = x86_64
+          devices=$(adb devices | awk 'NR > 1 && NF >= 2 {print $1 ":" $2}')
+          test "$devices" = 'emulator-5554:device'
+          adb shell input keyevent 82
+          cd "$GITHUB_WORKSPACE"
+          bash "$OVERLAY_DIR/run-dummy-ui.sh"
+      - name: Cleanup emulator and synthetic packages
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          adb -s emulator-5554 shell pm clear com.vanipy.saku.synthetic
+          adb -s emulator-5554 uninstall com.vanipy.saku.synthetic.test
+          adb -s emulator-5554 uninstall com.vanipy.saku.synthetic
+          adb -s emulator-5554 emu kill
+          echo 'Best-effort emulator/app cleanup attempted; runner is ephemeral.'
