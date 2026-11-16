@@ -33,3 +33,7 @@ Use JDK 17, Gradle 8.2.1, Android SDK 34, and build-tools 33.0.1. Configure an u
 ## Separate receive-state research model
 
 `investigations/durable-checkpoint9/` contains an isolated synthetic SQLite receive-state prototype and its tests/boundaries. It is not part of the Android app or a production transport, authentication, storage, or revocation gate. Its 21 host tests are research evidence only; the directory documents the known races and unimplemented production controls. It does not change the earlier prototype warning or the existing storage-test failures above.
+
+## Research checkpoints
+
+- [Cryptography research checkpoint (2026-11-16)](investigations/crypto-research-20261116/RESEARCH.md) - source and library research only; no implementation choice, audit, license change, or usable password vault.
