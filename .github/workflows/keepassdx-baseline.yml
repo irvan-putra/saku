@@ -1,0 +1,93 @@
+name: Pinned KeePassDX host baseline
+on:
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: keepassdx-host-baseline
+  cancel-in-progress: false
+jobs:
+  host-baseline:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      UPSTREAM_REV: 77ecfa8654a5bd0d79d512f8fa71c0af8a29b554
+    steps:
+      - name: Fetch pinned public source without credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0
+          mkdir "$RUNNER_TEMP/keepassdx-upstream"
+          cd "$RUNNER_TEMP/keepassdx-upstream"
+          git init --quiet
+          git -c credential.helper= fetch --no-tags --depth=1 https://github.com/Kunzisoft/KeePassDX.git "$UPSTREAM_REV"
+          git checkout --quiet --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$UPSTREAM_REV"
+          test -z "$(git status --porcelain)"
+          printf 'Pinned public upstream: `%s`\n' "$UPSTREAM_REV" >> "$GITHUB_STEP_SUMMARY"
+      - name: Select JDK and install Android tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -x "$JAVA_HOME_17_X64/bin/java"
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          printf 'JAVA_HOME=%s\n' "$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          printf '%s/bin\n' "$JAVA_HOME_17_X64" >> "$GITHUB_PATH"
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          java -version
+          # Disposable runner only; preserve sdkmanager status, not yes/SIGPIPE.
+          set +o pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          license_status=${PIPESTATUS[1]}
+          set -o pipefail
+          test "$license_status" -eq 0
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;25.2.9519653' 'cmake;3.22.1'
+      - name: Run upstream host tests and compile Kotlin without APK
+        id: baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GRADLE_USER_HOME="$RUNNER_TEMP/keepassdx-gradle"
+          cd "$RUNNER_TEMP/keepassdx-upstream"
+          ./gradlew --no-daemon --console=plain --max-workers=2 --continue \
+            :database:testDebugUnitTest :app:testLibreDebugUnitTest :app:compileLibreDebugKotlin
+      - name: Summarize available reports and check source integrity
+        if: always()
+        shell: bash
+        env:
+          BASELINE_OUTCOME: ${{ steps.baseline.outcome }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, pathlib, xml.etree.ElementTree as ET
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'keepassdx-upstream'
+          groups = {
+              'database': sorted(root.glob('database/build/test-results/testDebugUnitTest/TEST-*.xml')),
+              'app': sorted(root.glob('app/build/test-results/testLibreDebugUnitTest/TEST-*.xml')),
+          }
+          paths = [p for reports in groups.values() for p in reports]
+          totals = dict(tests=0, failures=0, errors=0, skipped=0)
+          for path in paths:
+              suite = ET.parse(path).getroot()
+              for name in totals:
+                  totals[name] += int(suite.attrib.get(name, 0))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+              out.write('\nHost command outcome: ' + os.environ['BASELINE_OUTCOME'] + '\n\n')
+              out.write('JUnit report files: ' + str(len(paths)) + '\n\n')
+              for module, reports in groups.items():
+                  out.write(module + ' report files: ' + str(len(reports)) + '\n\n')
+              out.write(', '.join(f'{k}={v}' for k, v in totals.items()) + '\n\n')
+              if not paths:
+                  out.write('No JUnit reports found; this is not passing-test evidence.\n\n')
+              out.write('No emulator, native instrumentation, autofill, device unlock, '
+                        'real vault, transport, APK or adoption result is asserted.\n')
+          if os.environ['BASELINE_OUTCOME'] == 'success':
+              if not all(groups.values()) or totals['tests'] - totals['skipped'] <= 0 or totals['failures'] or totals['errors']:
+                  raise SystemExit('Successful command lacks complete passing-test evidence')
+          PY
+          cd "$RUNNER_TEMP/keepassdx-upstream"
+          git diff --exit-code
+          git diff --cached --exit-code
+          test -z "$(git status --porcelain --untracked-files=no)"
