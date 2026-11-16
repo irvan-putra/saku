@@ -1,0 +1,156 @@
+name: Seven synthetic KeePassDX storage tests
+on:
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: keepassdx-dummy-storage
+  cancel-in-progress: false
+jobs:
+  synthetic-storage:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      UPSTREAM_REV: 77ecfa8654a5bd0d79d512f8fa71c0af8a29b554
+      OVERLAY_REV: ${{ github.sha }}
+      OVERLAY_REPO: ${{ github.repository }}
+    steps:
+      - name: Fetch exact public source and reviewed synthetic overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0
+          mkdir "$RUNNER_TEMP/keepassdx-upstream"
+          cd "$RUNNER_TEMP/keepassdx-upstream"
+          git init --quiet
+          git -c credential.helper= fetch --no-tags --depth=1 https://github.com/Kunzisoft/KeePassDX.git "$UPSTREAM_REV"
+          git checkout --quiet --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$UPSTREAM_REV"
+          test -z "$(git status --porcelain)"
+          dest=database/src/androidTest/java/com/kunzisoft/keepass/tests/saku
+          test ! -e "$dest"
+          mkdir -p "$dest"
+          for name in DummyImportFixture.kt DummyImportFixtureTest.kt; do
+            curl --fail --silent --show-error --location \
+              "https://raw.githubusercontent.com/$OVERLAY_REPO/$OVERLAY_REV/prototypes/keepassdx-dummy-import/$name" \
+              --output "$dest/$name"
+          done
+          printf '%s\n' \
+            'e3b5242b5f83aa1dd0f0ebd8d6d1aafcc402818e67644582e2bef9cca3cc77c7  database/src/androidTest/java/com/kunzisoft/keepass/tests/saku/DummyImportFixture.kt' \
+            '019affd159e88b7e8a2d1f544bbc78f6814c54eea499b1ed62cf8561497521b2  database/src/androidTest/java/com/kunzisoft/keepass/tests/saku/DummyImportFixtureTest.kt' | sha256sum --check
+          printf 'Upstream `%s`, overlay `%s`. Seven storage tests only.\n' "$UPSTREAM_REV" "$OVERLAY_REV" >> "$GITHUB_STEP_SUMMARY"
+      - name: Install disposable Android emulator toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -x "$JAVA_HOME_17_X64/bin/java"
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          printf 'JAVA_HOME=%s\n' "$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          printf '%s/bin\n' "$JAVA_HOME_17_X64" >> "$GITHUB_PATH"
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          java -version
+          set +o pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          license_status=${PIPESTATUS[1]}
+          set -o pipefail
+          test "$license_status" -eq 0
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'platforms;android-36' 'build-tools;36.0.0' 'ndk;25.2.9519653' \
+            'cmake;3.22.1' 'platform-tools' 'emulator' 'system-images;android-34;default;x86_64'
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          "$ANDROID_HOME/emulator/emulator" -accel-check
+      - name: Boot fresh emulator and run only seven storage tests
+        id: storage
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GRADLE_USER_HOME="$RUNNER_TEMP/keepassdx-gradle"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/saku-avd"
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+          mkdir -p "$ANDROID_AVD_HOME"
+          printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd \
+            --name saku_storage --package 'system-images;android-34;default;x86_64'
+          emulator -avd saku_storage -port 5554 -no-window -no-audio -no-snapshot \
+            -wipe-data -no-boot-anim -gpu swiftshader_indirect -accel on \
+            > "$RUNNER_TEMP/saku-emulator.log" 2>&1 &
+          emulator_pid=$!
+          cleanup() {
+            adb -s emulator-5554 emu kill || true
+            kill "$emulator_pid" 2>/dev/null || true
+            wait "$emulator_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          export ANDROID_SERIAL=emulator-5554
+          deadline=$((SECONDS + 300))
+          while [ "$(adb -s "$ANDROID_SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" != 1 ]; do
+            if ! kill -0 "$emulator_pid" 2>/dev/null || [ "$SECONDS" -ge "$deadline" ]; then
+              tail -60 "$RUNNER_TEMP/saku-emulator.log"
+              exit 1
+            fi
+            sleep 2
+          done
+          # Require Android's package manager within the same five-minute boot deadline.
+          while :; do
+            pm_path=$(adb -s "$ANDROID_SERIAL" shell pm path android 2>/dev/null | tr -d '\r' || true)
+            if [[ "$pm_path" == package:* ]]; then break; fi
+            if ! kill -0 "$emulator_pid" 2>/dev/null || [ "$SECONDS" -ge "$deadline" ]; then
+              echo 'Android package manager did not become ready within the boot deadline.'
+              adb -s "$ANDROID_SERIAL" shell df -h /data /system || true
+              tail -60 "$RUNNER_TEMP/saku-emulator.log"
+              exit 1
+            fi
+            sleep 2
+          done
+          test "$(adb shell getprop ro.build.version.sdk | tr -d '\r')" = 34
+          test "$(adb shell getprop ro.product.cpu.abi | tr -d '\r')" = x86_64
+          adb shell input keyevent 82
+          cd "$RUNNER_TEMP/keepassdx-upstream"
+          ./gradlew --no-daemon --console=plain --max-workers=2 \
+            :database:connectedDebugAndroidTest \
+            -Pandroid.testInstrumentationRunnerArguments.class=com.kunzisoft.keepass.tests.saku.DummyImportFixtureTest
+      - name: Require exact non-skipped seven-test evidence and source integrity
+        if: always()
+        shell: bash
+        env:
+          STORAGE_OUTCOME: ${{ steps.storage.outcome }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import collections, os, pathlib, xml.etree.ElementTree as ET
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'keepassdx-upstream'
+          expected = {
+            'lockedAndCancelNeverCreateEntry',
+            'approvedCreateReopensAndReplayDoesNotDuplicate',
+            'conflictingDepositDoesNotOverwriteExistingEntry',
+            'nullOutputCannotAcknowledgeOrReplace',
+            'throwingPartialOutputCannotAcknowledgeOrReplace',
+            'silentTruncationIsRejectedByReopenVerification',
+            'restartAfterReplaceBeforeAcknowledgementDoesNotDuplicate',
+          }
+          reports = sorted(root.glob('database/build/outputs/androidTest-results/connected/**/TEST-*.xml'))
+          cases = [case for report in reports for case in ET.parse(report).getroot().iter('testcase')]
+          names = collections.Counter(case.attrib.get('name') for case in cases)
+          wrong_class = any(case.attrib.get('classname') != 'com.kunzisoft.keepass.tests.saku.DummyImportFixtureTest' for case in cases)
+          bad = any(any(case.find(tag) is not None for tag in ('failure','error','skipped')) for case in cases)
+          good = (os.environ['STORAGE_OUTCOME'] == 'success' and not wrong_class and not bad
+                  and set(names) == expected and all(count == 1 for count in names.values()))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+              out.write('\nStorage command: ' + os.environ['STORAGE_OUTCOME'] + '\n\n')
+              out.write('Reported cases: ' + str(len(cases)) + '; exact-seven evidence: ' + str(good) + '\n\n')
+              out.write('\n'.join('- ' + str(name) + ': ' + str(count) for name,count in sorted(names.items())) + '\n\n')
+              out.write('Synthetic private-file storage only. No UI, real vault, transport, SAF, actual process kill or power-loss claim.\n')
+          if not good:
+              raise SystemExit('Missing, incomplete, skipped, unexpected or failed storage-test evidence')
+          PY
+          cd "$RUNNER_TEMP/keepassdx-upstream"
+          git diff --exit-code
+          git diff --cached --exit-code
+          python3 - <<'PY'
+          import subprocess
+          expected = {'?? database/src/androidTest/java/com/kunzisoft/keepass/tests/saku/'}
+          actual = set(subprocess.check_output(['git','status','--porcelain'], text=True).splitlines())
+          if actual != expected:
+              raise SystemExit('Unexpected upstream source status: ' + repr(actual))
+          PY
