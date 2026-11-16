@@ -28,14 +28,29 @@ with zipfile.ZipFile('dummy-ui/build/outputs/apk/debug/dummy-ui-debug.apk') as a
     if not libs: raise SystemExit('Missing x86_64 native library packaging')
     print('Packaged x86_64 libraries:', ', '.join(libs))
 NATIVE
-"$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$app" > "$RUNNER_TEMP/dummy-ui-badging.txt"
-if grep -q '^uses-permission' "$RUNNER_TEMP/dummy-ui-badging.txt"; then
-  printf '%s\n' 'Unexpected merged target permission'
+badging="$RUNNER_TEMP/dummy-ui-badging.txt"
+"$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$app" > "$badging"
+printf '%s\n' 'Synthetic APK badging preflight (package/sdk/debug/permissions):'
+grep -E "^(package|sdkVersion|targetSdkVersion|application-debuggable|uses-permission)" "$badging" || true
+check_badging() {
+  local pattern="$1" description="$2"
+  if grep -Eq "$pattern" "$badging"; then
+    printf 'PASS: %s\n' "$description"
+  else
+    printf 'FAIL: %s\n' "$description" >&2
+    exit 1
+  fi
+}
+if grep -q '^uses-permission' "$badging"; then
+  printf '%s\n' 'FAIL: unexpected merged target permission' >&2
   exit 1
+else
+  printf '%s\n' 'PASS: no merged target permissions'
 fi
-grep -q "^package: name='$target' " "$RUNNER_TEMP/dummy-ui-badging.txt"
-grep -q "^sdkVersion:'26'" "$RUNNER_TEMP/dummy-ui-badging.txt"
-grep -q '^application-debuggable' "$RUNNER_TEMP/dummy-ui-badging.txt"
+check_badging "^package: name='$target' " 'expected isolated synthetic package id'
+check_badging "^sdkVersion:'26'$" 'minimum SDK is 26'
+check_badging '^application-debuggable$' 'debuggable test APK'
+printf '%s\n' 'Preflight passed; proceeding to install and run exactly four UI methods.'
 # Fresh AVD only; no preexisting app may be reused to mask state differences.
 if adb shell pm path "$target" | grep -q '^package:'; then
   printf '%s\n' 'Unexpected installed synthetic target'

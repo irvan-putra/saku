@@ -40,7 +40,7 @@ jobs:
           abebdafdeb2c0e25625fbc7d0546387d5595089d61a469a7505989ea36a42bed  prototypes/keepassdx-dummy-ui/DummyImportActivityTest.kt
           e3b5242b5f83aa1dd0f0ebd8d6d1aafcc402818e67644582e2bef9cca3cc77c7  prototypes/keepassdx-dummy-ui/DummyImportFixture.kt
           ccbca8a85d1038649878c889b219a7c60fba825efb0a18463c1364f23aa22068  prototypes/keepassdx-dummy-ui/build.gradle.kts
-          2885459666604aeb83948930b18a17d4c0543c65967e7cc73f0722c5ead1defd  prototypes/keepassdx-dummy-ui/run-dummy-ui.sh
+          7190348820b97013864d80cbd59164c5831a9beb135badd14b340c43ee49b9b2  prototypes/keepassdx-dummy-ui/run-dummy-ui.sh
           HASHES
           for f in AndroidManifest.xml DummyImportActivity.kt DummyImportActivityTest.kt DummyImportFixture.kt build.gradle.kts run-dummy-ui.sh; do
             git ls-files --error-unmatch "$OVERLAY_DIR/$f" >/dev/null
