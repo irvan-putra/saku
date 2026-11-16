@@ -48,7 +48,35 @@ else
   printf '%s\n' 'PASS: no merged target permissions'
 fi
 check_badging "^package: name='$target' " 'expected isolated synthetic package id'
-check_badging "^sdkVersion:'26'$" 'minimum SDK is 26'
+# Badging is a summary, not authoritative evidence when sdkVersion is absent.
+# Read the SAME packaged APK with the SDK's manifest analyzer; never use source DSL.
+python3 - "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" "$app" <<'SDKCHECK'
+import pathlib, re, subprocess, sys, xml.etree.ElementTree as ET
+analyzer, apk = sys.argv[1:]
+if not pathlib.Path(analyzer).is_file():
+    raise SystemExit('FAIL: packaged-manifest analyzer unavailable')
+def read_manifest(command):
+    result = subprocess.run([analyzer, 'manifest', command, apk],
+                            check=True, capture_output=True, text=True)
+    return result.stdout.strip()
+minimum = read_manifest('min-sdk')
+target_sdk = read_manifest('target-sdk')
+xml = read_manifest('print')
+print('Packaged APK manifest SDK diagnostics:')
+print('min-sdk=' + repr(minimum) + '; target-sdk=' + repr(target_sdk))
+print(xml)
+# Require strict scalar output, not a missing value, codename or fallback default.
+if not re.fullmatch(r'26', minimum) or not re.fullmatch(r'36', target_sdk):
+    raise SystemExit('FAIL: packaged APK SDK scalar mismatch (require min26/target36)')
+manifest = ET.fromstring(xml)
+ns = '{http://schemas.android.com/apk/res/android}'
+sdk = manifest.findall('uses-sdk')
+if (manifest.tag != 'manifest' or len(sdk) != 1
+        or sdk[0].get(ns + 'minSdkVersion') != '26'
+        or sdk[0].get(ns + 'targetSdkVersion') != '36'):
+    raise SystemExit('FAIL: packaged manifest must contain exactly one min26/target36 uses-sdk')
+print('PASS: packaged APK minimum SDK26 and target SDK36, scalar and manifest XML agree')
+SDKCHECK
 check_badging '^application-debuggable$' 'debuggable test APK'
 printf '%s\n' 'Preflight passed; proceeding to install and run exactly four UI methods.'
 # Fresh AVD only; no preexisting app may be reused to mask state differences.
