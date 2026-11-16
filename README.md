@@ -28,3 +28,8 @@ No APK is included or released. No real passwords, keys, accounts, or network id
 ## Build
 
 Use JDK 17, Gradle 8.2.1, Android SDK 34, and build-tools 33.0.1. Configure an untracked `local.properties`; run `gradle assembleDebug testDebugUnitTest`. The full test suite retains the known 2.2.6 failure described above. The standalone `spikes/storage3` and `spikes/storage3-checkpoint6/host` projects have separate host test tasks. The Android packaging probe lives under `spikes/storage3-checkpoint6/android`.
+
+
+## Separate receive-state research model
+
+`investigations/durable-checkpoint9/` contains an isolated synthetic SQLite receive-state prototype and its tests/boundaries. It is not part of the Android app or a production transport, authentication, storage, or revocation gate. Its 21 host tests are research evidence only; the directory documents the known races and unimplemented production controls. It does not change the earlier prototype warning or the existing storage-test failures above.

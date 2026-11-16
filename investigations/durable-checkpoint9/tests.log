@@ -1,0 +1,26 @@
+test_ack_failure_does_not_rollback_commit (test_state.Tests) ... ok
+test_ack_observes_committed_state_from_second_connection (test_state.Tests) ... ok
+test_baseexception_ack_returns_pending (test_state.Tests) ... ok
+test_busy_revoke_failure_and_sidecar (test_state.Tests) ... ok
+test_duplicate_ack_failure_is_distinct (test_state.Tests) ... ok
+test_duplicate_reack_no_second_apply (test_state.Tests) ... ok
+test_old7_migration_seeds_current_session (test_state.Tests) ... ok
+test_owner_reapproval_requires_new_runtime_resolution (test_state.Tests) ... ok
+test_pending_key_and_non_key_or_group_fail (test_state.Tests) ... ok
+test_prepin_and_restart_fail_closed (test_state.Tests) ... ok
+test_real_process_death_boundaries (test_state.Tests) ... ok
+test_resolution_cannot_overwrite_interleaved_revocation (test_state.Tests) ... ok
+test_revocation_persists_and_blocks_restart_resolution (test_state.Tests) ... ok
+test_rollback_conflict_phone_entries_preserved (test_state.Tests) ... ok
+test_same_numeric_id_wrong_permessage_key_invalidates_mapping (test_state.Tests) ... ok
+test_schema_failure_does_not_consume_mid (test_state.Tests) ... ok
+test_session_cannot_be_reused_after_reapproval (test_state.Tests) ... ok
+test_sidecar_write_failure_access_can_remain_active (test_state.Tests) ... ok
+test_source_and_auth_rejections_no_mutation (test_state.Tests) ... ok
+test_stale_process_cannot_resume_after_revoke_and_reapprove (test_state.Tests) ... ok
+test_wrong_fingerprint_clears_mapping (test_state.Tests) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 0.271s
+
+OK
