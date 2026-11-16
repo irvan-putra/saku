@@ -1,0 +1,18 @@
+diff --git a/database/build.gradle.kts b/database/build.gradle.kts
+--- a/database/build.gradle.kts
++++ b/database/build.gradle.kts
+@@ -12,5 +12,6 @@ android {
+     defaultConfig {
+         minSdk = 19
++        multiDexEnabled = true
+ 
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+     }
+@@ -59,6 +60,7 @@ dependencies {
+ 
+     // Tests
+     androidTestImplementation(libs.androidx.test.runner)
++    androidTestImplementation("androidx.multidex:multidex:2.0.1")
+     testImplementation(libs.junit)
+     testImplementation(libs.robolectric)
+ }

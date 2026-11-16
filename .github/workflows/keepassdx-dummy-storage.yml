@@ -38,7 +38,17 @@ jobs:
           printf '%s\n' \
             'e3b5242b5f83aa1dd0f0ebd8d6d1aafcc402818e67644582e2bef9cca3cc77c7  database/src/androidTest/java/com/kunzisoft/keepass/tests/saku/DummyImportFixture.kt' \
             '019affd159e88b7e8a2d1f544bbc78f6814c54eea499b1ed62cf8561497521b2  database/src/androidTest/java/com/kunzisoft/keepass/tests/saku/DummyImportFixtureTest.kt' | sha256sum --check
-          printf 'Upstream `%s`, overlay `%s`. Seven storage tests only.\n' "$UPSTREAM_REV" "$OVERLAY_REV" >> "$GITHUB_STEP_SUMMARY"
+          patch_file="$RUNNER_TEMP/keepassdx-test-multidex.patch"
+          curl --fail --silent --show-error --location \
+            "https://raw.githubusercontent.com/$OVERLAY_REPO/$OVERLAY_REV/prototypes/keepassdx-dummy-import/multidex-test-build.patch" \
+            --output "$patch_file"
+          printf '%s  %s\n' \
+            'e61c1361e3f37dc77a2e6ba98cbba97ecb90cf768b06af6956e95f63bfb0e14f' "$patch_file" | sha256sum --check
+          git apply --check "$patch_file"
+          git apply "$patch_file"
+          test -z "$(git diff --cached --name-only)"
+          printf 'Pinned upstream `%s`, overlay `%s`; test-only multidex patch verified. Seven storage tests only.\n' \
+            "$UPSTREAM_REV" "$OVERLAY_REV" >> "$GITHUB_STEP_SUMMARY"
       - name: Install disposable Android emulator toolchain
         shell: bash
         run: |
@@ -69,6 +79,9 @@ jobs:
           export GRADLE_USER_HOME="$RUNNER_TEMP/keepassdx-gradle"
           export ANDROID_AVD_HOME="$RUNNER_TEMP/saku-avd"
           export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+          # Fail fast on Android-test APK DEX packaging before starting the emulator.
+          cd "$RUNNER_TEMP/keepassdx-upstream"
+          ./gradlew --no-daemon --console=plain --max-workers=2 :database:assembleDebugAndroidTest
           mkdir -p "$ANDROID_AVD_HOME"
           printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd \
             --name saku_storage --package 'system-images;android-34;default;x86_64'
@@ -145,12 +158,30 @@ jobs:
               raise SystemExit('Missing, incomplete, skipped, unexpected or failed storage-test evidence')
           PY
           cd "$RUNNER_TEMP/keepassdx-upstream"
-          git diff --exit-code
+          git diff --check
           git diff --cached --exit-code
           python3 - <<'PY'
-          import subprocess
-          expected = {'?? database/src/androidTest/java/com/kunzisoft/keepass/tests/saku/'}
-          actual = set(subprocess.check_output(['git','status','--porcelain'], text=True).splitlines())
-          if actual != expected:
-              raise SystemExit('Unexpected upstream source status: ' + repr(actual))
+          import pathlib, subprocess
+          expected_status = {
+              ' M database/build.gradle.kts',
+              '?? database/src/androidTest/java/com/kunzisoft/keepass/tests/saku/',
+          }
+          actual_status = set(subprocess.check_output(['git','status','--porcelain'], text=True).splitlines())
+          if actual_status != expected_status:
+              raise SystemExit('Unexpected upstream source status: ' + repr(actual_status))
+          numstat = subprocess.check_output(['git','diff','--numstat'], text=True).splitlines()
+          if numstat != ['2\t0\tdatabase/build.gradle.kts']:
+              raise SystemExit('Expected exactly two test-build additions: ' + repr(numstat))
+          added = [line[1:] for line in subprocess.check_output(
+              ['git','diff','--unified=0'], text=True).splitlines()
+              if line.startswith('+') and not line.startswith('+++')]
+          expected_additions = {
+              '        multiDexEnabled = true',
+              '    androidTestImplementation("androidx.multidex:multidex:2.0.1")',
+          }
+          if set(added) != expected_additions or len(added) != 2:
+              raise SystemExit('Unexpected test-build patch lines: ' + repr(added))
+          gradle = pathlib.Path('database/build.gradle.kts').read_text()
+          if gradle.count('minSdk = 19') != 1:
+              raise SystemExit('Upstream minSdk baseline changed')
           PY
