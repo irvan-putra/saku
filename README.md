@@ -37,3 +37,4 @@ Use JDK 17, Gradle 8.2.1, Android SDK 34, and build-tools 33.0.1. Configure an u
 ## Research checkpoints
 
 - [Cryptography research checkpoint (2026-11-16)](investigations/crypto-research-20261116/RESEARCH.md) - source and library research only; no implementation choice, audit, license change, or usable password vault.
+- [Whole Android vault reuse versus KDBX library](investigations/vault-reuse-20261116/RESEARCH.md) - bounded source comparison; not an audit, implementation choice, or usable vault.
