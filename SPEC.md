@@ -1,35 +1,29 @@
-# Saku - design checkpoint 1
+# Saku - development checkpoint 5
 
-Status: early design draft. Documentation only. No Android app or protocol implementation is published in this checkpoint.
+Status: synthetic UI scaffold and research/testing notes only. Not a usable password manager, not security-audited, and not licensed for redistribution at this checkpoint. The earlier documentation-only checkpoint remains in git history.
 
-## Known broken prototype: do not use
+## Known broken protocol prototype: do not use
 
-An earlier synthetic protocol prototype was found to be unsafe. The handshake-derived root value is visible in the public transcript, allowing an observer to derive message keys and decrypt captured traffic. The prototype also lacks safe handling for state loss/desynchronization, authenticated peer-pin persistence, and rollback-safe snapshot recovery. These are critical design failures, not minor implementation gaps.
+An earlier synthetic protocol prototype was critically unsafe. Its handshake-derived root value was visible in the public transcript, allowing an observer to derive message keys and decrypt captured traffic. It also lacked safe state-loss/desynchronization handling, authenticated peer-pin persistence, and rollback-safe snapshot recovery. These are critical design failures, not minor implementation gaps. The prototype and its gate sketches are withdrawn and excluded from this checkpoint.
 
-**Do not use the earlier prototype, this draft, or any related design with real passwords, accounts, keys, or live networks. No security property is established.** The prototype's code and tests are intentionally excluded from this public checkpoint. A passing synthetic test suite would not prove these properties safe.
+**Do not use the earlier prototype, this draft, or any related design with real passwords, accounts, keys, or live networks. No security property is established.** Passing synthetic tests does not prove these properties safe.
 
 ## Goal
 
-Explore a local-first Android password manager with a usable on-device vault and optional sync with the owner's assistant. The phone should also support manually added records. Existing-password import/migration is not yet scoped.
-
-This is a project goal, not a claim that the app, vault, pairing, sync, recovery, or Autofill works.
+Explore a local-first Android password manager with manual local records, Android Autofill, and delivery of newly created logins over Delta Chat. Sync-back is a later scope. Existing-vault migration is not scoped here. This is a goal, not a claim that the app, vault, pairing, sync, recovery, or Autofill works.
 
 ## Current state
 
-- No Android application has been built.
-- No network identity, real account, key, password, or private payload has been created for this project.
-- No crypto design is approved for implementation. The previously proposed Noise XK plus custom hash-ratchet design is withdrawn pending independent security review and replacement or repair.
-- The assistant's credential vault is write-only; existing saved passwords cannot be extracted for sync. Any future sync path must be designed around that limit.
+- The included Android UI is a synthetic mock. There is no real vault storage, password input, pairing, network permission, sync, or Autofill implementation.
+- The v1 transport direction chosen for investigation is Delta Chat's native OpenPGP end-to-end encryption, with no forward-secrecy claim and pinned keys behind an owner-approval gate. The gate is not implemented; no real traffic is enabled.
+- Local storage is not selected. KeePassJava2 2.2.6 has a retained reverse-interoperability failure; the separate 3.1.0 host spike is narrow and not an adoption, audit, or Android-runtime claim.
+- No real account, identity, key, password, or private payload was created or tested.
+- The assistant's credential vault is write-only; existing saved passwords cannot be extracted for sync.
 
-## Open design questions
+## Open work
 
-- Compare mature, interoperable password-vault formats and Android-compatible storage before choosing a format or writing custom crypto.
-- Define a reviewed pairing and peer-authentication design, including durable peer pinning, replay/rollback handling, state loss, snapshot recovery and revocation.
-- Confirm whether the assistant should sync only logins it creates or support a broader workflow; this is not decided.
-- Decide how manual phone entries are stored and whether they ever sync back.
-- Verify DeltaChat's Android transport packaging and operation on a real device before making any sync claim. Previous component work does not prove Saku runs on Android.
-- Select a repository license before calling this project open source.
-
-## Next checkpoint
-
-Compare existing vault formats and reviewed protocol/storage options. Keep any implementation synthetic-only until an independent security review clears a design. This checkpoint deliberately contains no executable protocol code.
+- Review and implement durable owner approval and peer pinning before any real traffic. SecureJoin, QR pairing, or a message is not owner approval.
+- Complete atomic receive, replay/deduplication, rollback and conflict handling; do not treat the previous broken prototype as a starting implementation.
+- Continue format/interoperability, malformed-file, KDF bounds, memory, crash-safety, and real-device testing before choosing storage.
+- Test Android execution, Autofill, unlock, backup/restore, transport packaging, and device performance before making any such claims.
+- Select a project license before calling this an open-source licensed release.

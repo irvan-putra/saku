@@ -1,11 +1,30 @@
 # Saku
 
-A draft project for exploring a local-first Android password manager with optional assistant sync.
+Local-first Android password-manager project, with a proposed path to deliver newly created logins over Delta Chat. License selection is still pending; do not treat this project as an open-source licensed release.
 
-**Checkpoint 1 is documentation only. The earlier protocol prototype is known broken and is not included here. Do not use any prototype code or design with real passwords, accounts, keys, or live networks. No security properties are established.**
+**Development checkpoint only. Do not use for real passwords, accounts, keys, or live sync.**
 
-This repository is a public design draft for review, not a usable password manager. No Android app has been built. No passwords, keys, accounts or private sync data exist here.
+The earlier protocol prototype was critically broken and is not included here. Its transcript-derived value let an observer derive message keys and decrypt captured traffic; it also lacked safe state-loss, peer-pinning, and rollback handling. See `SPEC.md` and `docs/SECURITY.md`. No security properties are established by this checkpoint.
 
-- `SPEC.md` - scope, open design choices, known prototype failures and remaining review questions.
+## What is included
 
-License: pending owner choice. Do not treat the project as open source until a `LICENSE` file is added.
+- A synthetic-only Android UI scaffold with fixed demo records. It has no real vault storage, network permission, account, pairing, or Autofill implementation. `VaultGate`'s synthetic-prefix check is a test convention, not a security boundary.
+- Host-only storage experiments and small, synthetic interoperability fixtures. The KeePassJava2 2.2.6 reverse-interoperability case fails because of missing `IconID`; that known failure remains visible. A separate, narrow 3.1.0 host spike passes its current tests, but this does not select or endorse a storage implementation.
+- A separate compile/DEX/package probe for the 3.1.0 API in the disposable namespace `dev.saku.storageprobe`. It is not production code and was not run on Android.
+- Current requirements and security/storage notes. The previous broken-prototype warning and documentation-only checkpoint history are preserved.
+
+## Test and build status
+
+The latest checkpoint reports 10 passing tests and one known failing 2.2.6 reverse-interop test (missing `IconID`). The full test suite is **not green**. The host `assembleDebug` build passed with Gradle limited to one worker and a 512 MiB JVM cap. A separate three-test 3.1.0 host spike passed. The storage probe compiled, DEXed, and assembled; it was not executed on Android. A Robolectric native-graphics render passed. Its screenshot is at `evidence/main-activity-robolectric.png`; it is a mock, host-rendered screen, not a device screenshot.
+
+No APK is included or released. No real passwords, keys, accounts, or network identities were used. Passing host tests or compilation does not establish Android runtime support, safe password storage, cryptographic security, or readiness for use.
+
+## Design notes
+
+- The current v1 direction is Delta Chat's native end-to-end encryption, with **no forward-secrecy claim** and pinned keys behind a reviewed owner-approval gate. No gate is implemented, and no real sync is enabled.
+- Local storage is not selected. Host interoperability samples do not establish Android support, safety, performance, or audit status.
+- The full test/build limitations and open work are in `SPEC.md`, `docs/PROTOCOL-EVAL.md`, `docs/SECURITY.md`, and `docs/STORAGE-EVAL.md`.
+
+## Build
+
+Use JDK 17, Gradle 8.2.1, Android SDK 34, and build-tools 33.0.1. Configure an untracked `local.properties`; run `gradle assembleDebug testDebugUnitTest`. The full test suite retains the known 2.2.6 failure described above. The standalone `spikes/storage3` and `spikes/storage3-checkpoint6/host` projects have separate host test tasks. The Android packaging probe lives under `spikes/storage3-checkpoint6/android`.

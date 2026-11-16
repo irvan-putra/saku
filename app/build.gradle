@@ -1,0 +1,27 @@
+plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
+android {
+  namespace 'com.vanipy.saku'
+  compileSdk 34
+  defaultConfig { applicationId "com.vanipy.saku"; minSdk 24; targetSdk 34; versionCode 1; versionName "0.1.0-mock1" }
+  buildTypes { release { minifyEnabled false } }
+  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+  testOptions { unitTests.includeAndroidResources = true }
+  kotlinOptions { jvmTarget = '17' }
+  applicationVariants.all { variant -> variant.outputs.all { outputFileName = "saku-${variant.versionName}.apk" } }
+}
+dependencies {
+  implementation 'androidx.appcompat:appcompat:1.6.1'
+  implementation 'androidx.recyclerview:recyclerview:1.3.2'
+  implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+  implementation 'androidx.drawerlayout:drawerlayout:1.2.0'
+  testImplementation 'junit:junit:4.13.2'
+}
+// Storage spike (host JVM only, synthetic data): KeePassJava2 candidates under test.
+dependencies {
+  testImplementation 'org.linguafranca.pwdb:KeePassJava2:2.2.6'
+  testImplementation 'org.linguafranca.pwdb:KeePassJava2-simple:2.2.6'
+}
+// Diagnostic HOST JVM workaround for 2.2.6 reflection. NOT Android proof.
+tasks.withType(Test).configureEach { jvmArgs '--add-opens=java.base/java.util=ALL-UNNAMED' }
+
+dependencies { testImplementation "org.robolectric:robolectric:4.12.2" }
