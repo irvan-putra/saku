@@ -1,4 +1,4 @@
-package dev.saku.storageprobe;
+package com.vanipy.saku.storageprobe;
 import java.io.*;
 import org.linguafranca.pwdb.kdbx.jackson.KdbxDatabase;
 import org.linguafranca.pwdb.format.KdbxCredentials;

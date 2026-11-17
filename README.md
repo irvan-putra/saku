@@ -10,7 +10,7 @@ The earlier protocol prototype was critically broken and is not included here. I
 
 - A synthetic-only Android UI scaffold with fixed demo records. It has no real vault storage, network permission, account, pairing, or Autofill implementation. `VaultGate`'s synthetic-prefix check is a test convention, not a security boundary.
 - Host-only storage experiments and small, synthetic interoperability fixtures. The KeePassJava2 2.2.6 reverse-interoperability case fails because of missing `IconID`; that known failure remains visible. A separate, narrow 3.1.0 host spike passes its current tests, but this does not select or endorse a storage implementation.
-- A separate compile/DEX/package probe for the 3.1.0 API in the disposable namespace `dev.saku.storageprobe`. It is not production code and was not run on Android.
+- A separate compile/DEX/package probe for the 3.1.0 API in the disposable namespace `com.vanipy.saku.storageprobe`. It is not production code and was not run on Android.
 - Current requirements and security/storage notes. The previous broken-prototype warning and documentation-only checkpoint history are preserved.
 
 ## Test and build status

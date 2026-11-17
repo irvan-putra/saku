@@ -17,7 +17,7 @@ resource bounds or general interoperability. No hostile KDF cost/header
 allocation limits verified. No A24 Argon2 performance measured.
 
 ## Android: compilation/DEX/packaging only
-Separate namespace dev.saku.storageprobe, no activities or network permissions.
+Separate namespace com.vanipy.saku.storageprobe, no activities or network permissions.
 Calls the actual 3.1.0 KdbxDatabase/KdbxCredentials API in a compiled class.
 AGP8.1.4/JDK17/Gradle8.2.1, compile34/target34/min24: assembleDebug PASSES.
 Dependency-resource collisions required excluding the duplicate OSGI manifest

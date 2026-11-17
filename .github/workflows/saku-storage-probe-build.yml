@@ -1,0 +1,57 @@
+name: Build isolated storage packaging probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/saku-storage-probe-build.yml'
+      - 'spikes/storage3-checkpoint6/android/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: saku-storage-probe-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  assemble-probe:
+    if: github.repository == 'irvan-putra/saku'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Gradle 8.2.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.2.1'
+      - name: Install Android API 34 build tools
+        run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
+      - name: Assemble debug APK and verify package ID
+        working-directory: spikes/storage3-checkpoint6/android
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -version
+          gradle --no-daemon --console=plain --max-workers=2 :app:assembleDebug
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          badging=$("$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$apk")
+          printf '%s\n' "$badging"
+          grep -Eq "^package: name='com\.vanipy\.saku\.storageprobe' versionCode='1' versionName='0\.0\.0-probe'" <(printf '%s\n' "$badging")
+          unzip -l "$apk" | grep -F 'classes.dex'
+          if printf '%s\n' "$badging" | grep -Fq "dev.saku.storageprobe"; then
+            echo 'Old package ID present in built APK' >&2
+            exit 1
+          fi

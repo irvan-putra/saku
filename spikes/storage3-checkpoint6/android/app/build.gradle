@@ -1,9 +1,9 @@
 plugins { id 'com.android.application' }
 android {
- namespace 'dev.saku.storageprobe'
+ namespace 'com.vanipy.saku.storageprobe'
  packaging { resources.merges += ['META-INF/LICENSE.md', 'META-INF/NOTICE.md']; resources.excludes += ['META-INF/versions/9/OSGI-INF/MANIFEST.MF'] }
  compileSdk 34
- defaultConfig { applicationId 'dev.saku.storageprobe'; minSdk 24; targetSdk 34; versionCode 1; versionName '0.0.0-probe' }
+ defaultConfig { applicationId 'com.vanipy.saku.storageprobe'; minSdk 24; targetSdk 34; versionCode 1; versionName '0.0.0-probe' }
  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
 dependencies { implementation 'org.linguafranca.pwdb:KeePassJava2.kdbx.database:3.1.0' }
