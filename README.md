@@ -6,17 +6,9 @@ Local-first Android password-manager project, with a proposed path to deliver ne
 
 The earlier protocol prototype was critically broken and is not included here. Its transcript-derived value let an observer derive message keys and decrypt captured traffic; it also lacked safe state-loss, peer-pinning, and rollback handling. See `SPEC.md` and `docs/SECURITY.md`. No security properties are established by this checkpoint.
 
-## Demo APK (planned)
+## Demo APK
 
-No APK has been published yet. When a release exists it will be a direct
-GitHub release asset (`saku-vX.Y.Z.apk`); see the Releases page. The demo is
-the mock screen with fixed synthetic entries only: no real vault, no network
-permission, no sync, no autofill. Every screen shows a persistent
-"NOT FOR REAL PASSWORDS" banner. **Do not enter real passwords or accounts.**
-The unit suite is not fully green (one documented KeePassJava2 2.2.6
-reverse-interop case, KdbxSpikeTest.readsPykeepassRoundtrip). The signing
-workflow checks the full result set strictly: exact expected tests, no skips,
-fresh results, and only that one documented failure; anything else fails.
+The signed 0.1.0 synthetic demo is published as a direct [GitHub release asset](https://github.com/irvan-putra/saku/releases/download/v0.1.0/saku-v0.1.0.apk); see the [release page](https://github.com/irvan-putra/saku/releases/tag/v0.1.0). It is only the mock screen with fixed synthetic entries: no real vault, network permission, sync or autofill. Every screen shows a persistent "NOT FOR REAL PASSWORDS" banner. **Do not enter real passwords or accounts.** The full suite ran 13 tests with one documented failure, `com.vanipy.saku.KdbxSpikeTest.readsPykeepassRoundtrip`; only the targeted demo-app tests passed. The signing workflow reports this failure strictly and rejects any additional unexpected failure.
 
 ## What is included
 
@@ -27,9 +19,11 @@ fresh results, and only that one documented failure; anything else fails.
 
 ## Test and build status
 
-The latest checkpoint reports 10 passing tests and one known failing 2.2.6 reverse-interop test (missing `IconID`). The full test suite is **not green**. The host `assembleDebug` build passed with Gradle limited to one worker and a 512 MiB JVM cap. A separate three-test 3.1.0 host spike passed. The storage probe compiled, DEXed, and assembled; it was not executed on Android. A Robolectric native-graphics render passed. Its screenshot is at `evidence/main-activity-robolectric.png`; it is a mock, host-rendered screen, not a device screenshot.
+The signed root-app qualification ran 13 tests with one known failure, `com.vanipy.saku.KdbxSpikeTest.readsPykeepassRoundtrip`; the full suite is **not green**. The targeted demo-app tests and the root `assembleRelease` build passed. The signed demo was built from the exact source commit attached to the release; no real passwords, accounts, keys or network identities were used.
 
-No APK is included or released. No real passwords, keys, accounts, or network identities were used. Passing host tests or compilation does not establish Android runtime support, safe password storage, cryptographic security, or readiness for use.
+Older host-only evidence remains separate: the host `assembleDebug` build passed with Gradle limited to one worker and a 512 MiB JVM cap; a separate three-test 3.1.0 host spike passed; the storage probe compiled, DEXed and assembled but was not executed on Android; and a Robolectric native-graphics render passed. Its screenshot is `evidence/main-activity-robolectric.png`, a mock host-rendered screen, not a device screenshot.
+
+The APK binary is distributed separately through the GitHub release above, not stored in this source repository. Passing host tests or compilation does not establish Android runtime support, safe password storage, cryptographic security or readiness for use.
 
 ## Design notes
 
