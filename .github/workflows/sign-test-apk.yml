@@ -24,8 +24,8 @@ env:
   # SET in the release commit: 64 uppercase hex digits of the key certificate. Not a secret.
   EXPECTED_CERT_SHA256: B63521B928B4F8107F63785DE23718972381FACF4EA2749141A126C425CCEDB8
   # SET per release in the release commit: must equal the gradle defaults, tools/icon-version.txt and the icon badge.
-  EXPECTED_VERSION_NAME: '0.1.0'
-  EXPECTED_VERSION_CODE: '2'
+  EXPECTED_VERSION_NAME: '0.1.1'
+  EXPECTED_VERSION_CODE: '3'
   EXPECTED_PACKAGE: com.vanipy.saku
   EXPECTED_LABEL: saku
   BUILD_TOOLS_VERSION: 34.0.0
