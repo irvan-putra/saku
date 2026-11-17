@@ -83,7 +83,20 @@ jobs:
                   out.write('No JUnit reports found; this is not passing-test evidence.\n\n')
               out.write('No emulator, native instrumentation, autofill, device unlock, '
                         'real vault, transport, APK or adoption result is asserted.\n')
+          clamp = root / 'database/build/test-results/testDebugUnitTest/TEST-com.kunzisoft.keepass.tests.crypto.KdfClampingTest.xml'
           if os.environ['BASELINE_OUTCOME'] == 'success':
+              if not clamp.exists():
+                  raise SystemExit('KdfClampingTest did not run')
+              cs = ET.parse(clamp).getroot()
+              want = {'testArgon2KdfClamping', 'testArgon2KdfException', 'testAesKdfClamping', 'testAesKdfRoundsException'}
+              cases = [c for c in cs.iter('testcase')]
+              names = sorted(c.attrib.get('name', '') for c in cases)
+              if names != sorted(want) or any(c.attrib.get('classname') != 'com.kunzisoft.keepass.tests.crypto.KdfClampingTest' for c in cases):
+                  raise SystemExit('KdfClampingTest must run exactly its four named tests: ' + ', '.join(names))
+              if any(c.find(tag) is not None for c in cases for tag in ('failure', 'error', 'skipped')):
+                  raise SystemExit('KdfClampingTest contains failure, error or skipped evidence')
+              if any(int(cs.attrib.get(k, 0)) for k in ('failures', 'errors', 'skipped')) or int(cs.attrib.get('tests', 0)) != 4:
+                  raise SystemExit('KdfClampingTest needs 4 tests with zero failures, errors and skips')
               if not all(groups.values()) or totals['tests'] - totals['skipped'] <= 0 or totals['failures'] or totals['errors']:
                   raise SystemExit('Successful command lacks complete passing-test evidence')
           PY
