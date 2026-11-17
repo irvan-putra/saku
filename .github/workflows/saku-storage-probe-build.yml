@@ -32,6 +32,8 @@ jobs:
           java-version: '17'
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - name: Install Gradle 8.2.1
         uses: gradle/actions/setup-gradle@v4
         with:
