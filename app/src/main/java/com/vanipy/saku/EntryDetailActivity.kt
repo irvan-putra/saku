@@ -25,6 +25,7 @@ class EntryDetailActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL; setPadding(48, 48, 48, 48)
         }
         fun line(s: String) = TextView(this).apply { text = s; textSize = 16f; setPadding(0, 12, 0, 12) }
+        layout.addView(DemoBanner.make(this))
         layout.addView(line("site: ${i.getStringExtra("site")}"))
         layout.addView(line("username: ${i.getStringExtra("username")}"))
         layout.addView(pw)

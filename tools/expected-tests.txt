@@ -1,0 +1,13 @@
+com.vanipy.saku.KdbxSpikeTest.malformedInputsFailFast
+com.vanipy.saku.KdbxSpikeTest.readsPykeepassRoundtrip
+com.vanipy.saku.KdbxSpikeTest.roundtripSyntheticEntry
+com.vanipy.saku.KdbxSpikeTest.wrongPasswordFails
+com.vanipy.saku.ScreenRenderTest.renderDetail
+com.vanipy.saku.ScreenRenderTest.renderMain
+com.vanipy.saku.ScreenRenderTest.renderPairing
+com.vanipy.saku.VaultTest.archiveFilter
+com.vanipy.saku.VaultTest.blankSiteRefused
+com.vanipy.saku.VaultTest.modelCarriesBothTimestamps
+com.vanipy.saku.VaultTest.realPasswordRefused
+com.vanipy.saku.VaultTest.storeRefusesOpen
+com.vanipy.saku.VaultTest.syntheticAccepted

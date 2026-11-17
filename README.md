@@ -6,6 +6,18 @@ Local-first Android password-manager project, with a proposed path to deliver ne
 
 The earlier protocol prototype was critically broken and is not included here. Its transcript-derived value let an observer derive message keys and decrypt captured traffic; it also lacked safe state-loss, peer-pinning, and rollback handling. See `SPEC.md` and `docs/SECURITY.md`. No security properties are established by this checkpoint.
 
+## Demo APK (planned)
+
+No APK has been published yet. When a release exists it will be a direct
+GitHub release asset (`saku-vX.Y.Z.apk`); see the Releases page. The demo is
+the mock screen with fixed synthetic entries only: no real vault, no network
+permission, no sync, no autofill. Every screen shows a persistent
+"NOT FOR REAL PASSWORDS" banner. **Do not enter real passwords or accounts.**
+The unit suite is not fully green (one documented KeePassJava2 2.2.6
+reverse-interop case, KdbxSpikeTest.readsPykeepassRoundtrip). The signing
+workflow checks the full result set strictly: exact expected tests, no skips,
+fresh results, and only that one documented failure; anything else fails.
+
 ## What is included
 
 - A synthetic-only Android UI scaffold with fixed demo records. It has no real vault storage, network permission, account, pairing, or Autofill implementation. `VaultGate`'s synthetic-prefix check is a test convention, not a security boundary.

@@ -74,7 +74,11 @@ class MainActivity : AppCompatActivity() {
         val lp = DrawerLayout.LayoutParams((resources.displayMetrics.density * 280).toInt(),
             ViewGroup.LayoutParams.MATCH_PARENT, Gravity.START)
         drawer.addView(menu, lp)
-        setContentView(drawer)
+        val root = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL }
+        root.addView(DemoBanner.make(this))
+        root.addView(drawer, android.widget.LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        setContentView(root)
         refresh()
         adapter.flashSyncState("MOCK - synthetic examples only. No storage or sync.")
     }
