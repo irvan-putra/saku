@@ -36,8 +36,10 @@ jobs:
           persist-credentials: false
       - name: Verifier self-test (synthetic bad inputs must fail)
         run: bash tools/test-verify-signed-apk.sh
-      - name: Checker self-test (stale, missing, skipped, wrong-signature, build-failure cases must fail)
-        run: python3 tools/test-check-full-suite.py
+      - name: Checker self-tests (test results; manifest permissions) - bad cases must fail
+        run: |
+          python3 tools/test-check-full-suite.py
+          python3 tools/test-check-manifest-permissions.py
   build:
     needs: gate
     runs-on: ubuntu-24.04
@@ -141,10 +143,10 @@ jobs:
           "$bt/apksigner" verify --verbose --print-certs "$out" > verify.txt
           "$bt/aapt2" dump badging "$out" > badging.txt
           bash tools/verify-signed-apk.sh verify.txt badging.txt
-          # No network or dangerous permission. The only one allowed is AndroidX's package-local,
-          # signature-level receiver permission.
-          names=$(grep '^uses-permission' badging.txt | sed -n "s/.*name='\([^']*\)'.*/\1/p" | sort -u)
-          [ "$names" = "com.vanipy.saku.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" ] || { echo "unexpected permissions: $names"; exit 1; }
+          # No network or dangerous permission: the manifest must declare exactly one permission, AndroidX's
+          # package-local one, with protectionLevel exactly signature (0x2), and request only that one.
+          "$bt/aapt2" dump xmltree --file AndroidManifest.xml "$out" > manifest-tree.txt
+          python3 tools/check-manifest-permissions.py manifest-tree.txt com.vanipy.saku.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
           sha256sum "$out" | tee "$out.sha256"
           cp unsigned/test-summary.txt test-summary.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -155,5 +157,6 @@ jobs:
             saku-v*.apk.sha256
             verify.txt
             badging.txt
+            manifest-tree.txt
             test-summary.txt
           if-no-files-found: error
