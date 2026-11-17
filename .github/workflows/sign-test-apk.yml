@@ -10,10 +10,14 @@ name: sign test apk
 on:
   workflow_dispatch:
     inputs:
-      confirm_sign:
-        description: Type SIGN to build and sign a test APK with the saku key
+      operation:
+        description: QUALIFY runs the root demo tests and builds an unsigned APK; SIGN also runs the separately gated signing job
         required: true
-        type: string
+        type: choice
+        options:
+          - QUALIFY
+          - SIGN
+        default: QUALIFY
 permissions:
   contents: read
 env:
@@ -27,7 +31,7 @@ env:
   BUILD_TOOLS_VERSION: 34.0.0
 jobs:
   gate:
-    if: ${{ inputs.confirm_sign == 'SIGN' && github.ref == 'refs/heads/main' }}
+    if: ${{ (inputs.operation == 'QUALIFY' || inputs.operation == 'SIGN') && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -42,6 +46,7 @@ jobs:
           python3 tools/test-check-manifest-permissions.py
   build:
     needs: gate
+    if: ${{ (inputs.operation == 'QUALIFY' || inputs.operation == 'SIGN') && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     outputs:
@@ -96,6 +101,7 @@ jobs:
           if-no-files-found: error
   sign:
     needs: build
+    if: ${{ inputs.operation == 'SIGN' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
