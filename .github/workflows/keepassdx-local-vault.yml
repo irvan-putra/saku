@@ -1,0 +1,345 @@
+name: Synthetic KeePassDX local vault tests
+on:
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: keepassdx-local-vault
+  cancel-in-progress: false
+jobs:
+  host-gate-tests:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      UPSTREAM_REV: 77ecfa8654a5bd0d79d512f8fa71c0af8a29b554
+      OVERLAY_REV: ${{ github.sha }}
+      OVERLAY_REPO: ${{ github.repository }}
+    steps:
+      - name: Fetch exact public source and reviewed synthetic overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0
+          mkdir "$RUNNER_TEMP/keepassdx-upstream"
+          cd "$RUNNER_TEMP/keepassdx-upstream"
+          git init --quiet
+          git -c credential.helper= fetch --no-tags --depth=1 https://github.com/Kunzisoft/KeePassDX.git "$UPSTREAM_REV"
+          git checkout --quiet --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$UPSTREAM_REV"
+          test -z "$(git status --porcelain)"
+          main_dest=database/src/main/java/com/vanipy/saku/vault
+          test_dest=database/src/test/java/com/vanipy/saku/vault
+          test ! -e "$main_dest" && test ! -e "$test_dest"
+          mkdir -p "$main_dest" "$test_dest"
+          base="https://raw.githubusercontent.com/$OVERLAY_REPO/$OVERLAY_REV/prototypes/keepassdx-local-vault"
+          for name in KdbxKdfBudgetGate.kt LocalVaultStore.kt; do
+            curl --fail --silent --show-error --location \
+              "$base/main/vault/$name" --output "$main_dest/$name"
+          done
+          curl --fail --silent --show-error --location \
+            "$base/test/KdbxKdfBudgetGateTest.kt" --output "$test_dest/KdbxKdfBudgetGateTest.kt"
+          printf '%s\n' \
+            'ae9ac56c2bfb0b61e04094c9c575c58565b02ea6e1bbc9edb5b380e9b057f243  database/src/main/java/com/vanipy/saku/vault/KdbxKdfBudgetGate.kt' \
+            '459ef71b94dc7a9f72d306d02a922bb259e22bc6f78935ecd7c20fdc85f2876c  database/src/main/java/com/vanipy/saku/vault/LocalVaultStore.kt' \
+            '0f4fc3f6b58d7cdf512c6395a88596f515daa10f823b98f6db75280d1b4dd0f2  database/src/test/java/com/vanipy/saku/vault/KdbxKdfBudgetGateTest.kt' | sha256sum --check
+          printf 'Pinned upstream `%s`, overlay `%s`; eight host budget-gate tests only.\n' \
+            "$UPSTREAM_REV" "$OVERLAY_REV" >> "$GITHUB_STEP_SUMMARY"
+      - name: Select JDK and install Android tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -x "$JAVA_HOME_17_X64/bin/java"
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          printf 'JAVA_HOME=%s\n' "$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          printf '%s/bin\n' "$JAVA_HOME_17_X64" >> "$GITHUB_PATH"
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          java -version
+          set +o pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          license_status=${PIPESTATUS[1]}
+          set -o pipefail
+          test "$license_status" -eq 0
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;25.2.9519653' 'cmake;3.22.1'
+      - name: Run only the eight synthetic budget-gate host tests
+        id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GRADLE_USER_HOME="$RUNNER_TEMP/keepassdx-gradle"
+          cd "$RUNNER_TEMP/keepassdx-upstream"
+          ./gradlew --no-daemon --console=plain --max-workers=2 \
+            :database:testDebugUnitTest --tests 'com.vanipy.saku.vault.KdbxKdfBudgetGateTest'
+      - name: Require exact non-skipped eight-test evidence and source integrity
+        if: always()
+        shell: bash
+        env:
+          GATE_OUTCOME: ${{ steps.gate.outcome }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import collections, os, pathlib, xml.etree.ElementTree as ET
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'keepassdx-upstream'
+          expected = {
+            'acceptsAesKdfWithinBudget',
+            'acceptsArgon2idWithinBudget',
+            'rejectsArgon2idMemoryOverBudgetBeforeTransform',
+            'rejectsMissingKdfParameters',
+            'rejectsTruncatedHeader',
+            'rejectsHugeFieldLengthWithoutAllocating',
+            'rejectsKdbx3Header',
+            'rejectsUnknownKdfUuid',
+          }
+          reports = sorted(root.glob('database/build/test-results/testDebugUnitTest/TEST-*.xml'))
+          cases = [case for report in reports for case in ET.parse(report).getroot().iter('testcase')]
+          names = collections.Counter(case.attrib.get('name') for case in cases)
+          wrong_class = any(case.attrib.get('classname') != 'com.vanipy.saku.vault.KdbxKdfBudgetGateTest' for case in cases)
+          bad = any(any(case.find(tag) is not None for tag in ('failure','error','skipped')) for case in cases)
+          good = (os.environ['GATE_OUTCOME'] == 'success' and not wrong_class and not bad
+                  and set(names) == expected and all(count == 1 for count in names.values()))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+              out.write('\nGate command: ' + os.environ['GATE_OUTCOME'] + '\n\n')
+              out.write('Reported cases: ' + str(len(cases)) + '; exact-eight evidence: ' + str(good) + '\n\n')
+              out.write('\n'.join('- ' + str(name) + ': ' + str(count) for name,count in sorted(names.items())) + '\n\n')
+              out.write('Header parse only. No KDF transform, vault roundtrip, UI, real vault or transport claim.\n')
+          if not good:
+              raise SystemExit('Missing, incomplete, skipped, unexpected or failed budget-gate evidence')
+          PY
+          cd "$RUNNER_TEMP/keepassdx-upstream"
+          git diff --exit-code
+          git diff --cached --exit-code
+          python3 - <<'PY'
+          import subprocess
+          expected_status = {
+              '?? database/src/main/java/com/vanipy/',
+              '?? database/src/test/java/com/vanipy/',
+          }
+          actual_status = set(subprocess.check_output(['git','status','--porcelain'], text=True).splitlines())
+          if actual_status != expected_status:
+              raise SystemExit('Unexpected upstream source status: ' + repr(actual_status))
+          PY
+
+  emulator-vault-tests:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      UPSTREAM_REV: 77ecfa8654a5bd0d79d512f8fa71c0af8a29b554
+      OVERLAY_REV: ${{ github.sha }}
+      OVERLAY_REPO: ${{ github.repository }}
+    steps:
+      - name: Fetch exact public source and reviewed synthetic overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0
+          mkdir "$RUNNER_TEMP/keepassdx-upstream"
+          cd "$RUNNER_TEMP/keepassdx-upstream"
+          git init --quiet
+          git -c credential.helper= fetch --no-tags --depth=1 https://github.com/Kunzisoft/KeePassDX.git "$UPSTREAM_REV"
+          git checkout --quiet --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$UPSTREAM_REV"
+          test -z "$(git status --porcelain)"
+          main_dest=database/src/main/java/com/vanipy/saku/vault
+          android_dest=database/src/androidTest/java/com/vanipy/saku/vault
+          test ! -e "$main_dest" && test ! -e "$android_dest"
+          mkdir -p "$main_dest" "$android_dest"
+          base="https://raw.githubusercontent.com/$OVERLAY_REPO/$OVERLAY_REV/prototypes/keepassdx-local-vault"
+          for name in KdbxKdfBudgetGate.kt LocalVaultStore.kt; do
+            curl --fail --silent --show-error --location \
+              "$base/main/vault/$name" --output "$main_dest/$name"
+          done
+          curl --fail --silent --show-error --location \
+            "$base/androidTest/LocalVaultStoreAndroidTest.kt" --output "$android_dest/LocalVaultStoreAndroidTest.kt"
+          printf '%s\n' \
+            'ae9ac56c2bfb0b61e04094c9c575c58565b02ea6e1bbc9edb5b380e9b057f243  database/src/main/java/com/vanipy/saku/vault/KdbxKdfBudgetGate.kt' \
+            '459ef71b94dc7a9f72d306d02a922bb259e22bc6f78935ecd7c20fdc85f2876c  database/src/main/java/com/vanipy/saku/vault/LocalVaultStore.kt' \
+            '35dfb6a4d551b7ca5878334458fb35a93adfff69ce116e7f077df01ef0f97e85  database/src/androidTest/java/com/vanipy/saku/vault/LocalVaultStoreAndroidTest.kt' | sha256sum --check
+          patch_file="$RUNNER_TEMP/keepassdx-test-multidex.patch"
+          curl --fail --silent --show-error --location \
+            "https://raw.githubusercontent.com/$OVERLAY_REPO/$OVERLAY_REV/prototypes/keepassdx-dummy-import/multidex-test-build.patch" \
+            --output "$patch_file"
+          printf '%s  %s\n' \
+            'e61c1361e3f37dc77a2e6ba98cbba97ecb90cf768b06af6956e95f63bfb0e14f' "$patch_file" | sha256sum --check
+          git apply --check "$patch_file"
+          git apply "$patch_file"
+          test -z "$(git diff --cached --name-only)"
+          printf 'Pinned upstream `%s`, overlay `%s`; seven emulator vault tests only.\n' \
+            "$UPSTREAM_REV" "$OVERLAY_REV" >> "$GITHUB_STEP_SUMMARY"
+      - name: Install disposable Android emulator toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -x "$JAVA_HOME_17_X64/bin/java"
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          printf 'JAVA_HOME=%s\n' "$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          printf '%s/bin\n' "$JAVA_HOME_17_X64" >> "$GITHUB_PATH"
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          java -version
+          set +o pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          license_status=${PIPESTATUS[1]}
+          set -o pipefail
+          test "$license_status" -eq 0
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'platforms;android-36' 'build-tools;36.0.0' 'ndk;25.2.9519653' \
+            'cmake;3.22.1' 'platform-tools' 'emulator' 'system-images;android-34;default;x86_64'
+          test -c /dev/kvm
+          sudo chmod a+rw /dev/kvm
+          "$ANDROID_HOME/emulator/emulator" -accel-check
+      - name: Boot fresh emulator and run only seven vault tests
+        id: vault
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GRADLE_USER_HOME="$RUNNER_TEMP/keepassdx-gradle"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/saku-avd"
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+          # Fail fast on Android-test APK DEX packaging before starting the emulator.
+          cd "$RUNNER_TEMP/keepassdx-upstream"
+          ./gradlew --no-daemon --console=plain --max-workers=2 :database:assembleDebugAndroidTest
+          mkdir -p "$ANDROID_AVD_HOME"
+          printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd \
+            --name saku_vault --package 'system-images;android-34;default;x86_64'
+          emulator -avd saku_vault -port 5554 -no-window -no-audio -no-snapshot \
+            -wipe-data -no-boot-anim -gpu swiftshader_indirect -accel on \
+            > "$RUNNER_TEMP/saku-emulator.log" 2>&1 &
+          emulator_pid=$!
+          cleanup() {
+            adb -s emulator-5554 emu kill || true
+            kill "$emulator_pid" 2>/dev/null || true
+            wait "$emulator_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          export ANDROID_SERIAL=emulator-5554
+          deadline=$((SECONDS + 300))
+          while [ "$(adb -s "$ANDROID_SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" != 1 ]; do
+            if ! kill -0 "$emulator_pid" 2>/dev/null || [ "$SECONDS" -ge "$deadline" ]; then
+              tail -60 "$RUNNER_TEMP/saku-emulator.log"
+              exit 1
+            fi
+            sleep 2
+          done
+          while :; do
+            pm_path=$(adb -s "$ANDROID_SERIAL" shell pm path android 2>/dev/null | tr -d '\r' || true)
+            if [[ "$pm_path" == package:* ]]; then break; fi
+            if ! kill -0 "$emulator_pid" 2>/dev/null || [ "$SECONDS" -ge "$deadline" ]; then
+              echo 'Android package manager did not become ready within the boot deadline.'
+              adb -s "$ANDROID_SERIAL" shell df -h /data /system || true
+              tail -60 "$RUNNER_TEMP/saku-emulator.log"
+              exit 1
+            fi
+            sleep 2
+          done
+          test "$(adb shell getprop ro.build.version.sdk | tr -d '\r')" = 34
+          test "$(adb shell getprop ro.product.cpu.abi | tr -d '\r')" = x86_64
+          adb shell input keyevent 82
+          ./gradlew --no-daemon --console=plain --max-workers=2 \
+            :database:connectedDebugAndroidTest \
+            -Pandroid.testInstrumentationRunnerArguments.class=com.vanipy.saku.vault.LocalVaultStoreAndroidTest
+          # Pull the fresh KeePassDX-written fixture while the emulator is up.
+          adb pull /sdcard/Android/data/com.kunzisoft.keepass.database.test/files/saku-fresh-argon2id.kdbx \
+            "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx"
+          test -s "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx"
+          sha256sum "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload fresh fixture artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: saku-fresh-argon2id
+          path: saku-fresh-argon2id.kdbx
+          if-no-files-found: error
+          retention-days: 1
+      - name: Require exact non-skipped seven-test evidence and source integrity
+        if: always()
+        shell: bash
+        env:
+          VAULT_OUTCOME: ${{ steps.vault.outcome }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import collections, os, pathlib, xml.etree.ElementTree as ET
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'keepassdx-upstream'
+          expected = {
+            'createUnlockAddReopenWithArgon2id',
+            'wrongMasterPasswordRejected',
+            'truncatedFileRejected',
+            'tamperedPayloadByteRejected',
+            'overBudgetMemoryRejectedBeforeTransform',
+            'syntheticGateRefusesRealLookingSecrets',
+            'freshFixtureExportedForInterop',
+          }
+          reports = sorted(root.glob('database/build/outputs/androidTest-results/connected/**/TEST-*.xml'))
+          cases = [case for report in reports for case in ET.parse(report).getroot().iter('testcase')]
+          names = collections.Counter(case.attrib.get('name') for case in cases)
+          wrong_class = any(case.attrib.get('classname') != 'com.vanipy.saku.vault.LocalVaultStoreAndroidTest' for case in cases)
+          bad = any(any(case.find(tag) is not None for tag in ('failure','error','skipped')) for case in cases)
+          good = (os.environ['VAULT_OUTCOME'] == 'success' and not wrong_class and not bad
+                  and set(names) == expected and all(count == 1 for count in names.values()))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+              out.write('\nVault command: ' + os.environ['VAULT_OUTCOME'] + '\n\n')
+              out.write('Reported cases: ' + str(len(cases)) + '; exact-seven evidence: ' + str(good) + '\n\n')
+              out.write('\n'.join('- ' + str(name) + ': ' + str(count) for name,count in sorted(names.items())) + '\n\n')
+              out.write('Synthetic private-file vault only. No UI, real vault, transport, SAF, actual process kill, power-loss or A24 claim.\n')
+          if not good:
+              raise SystemExit('Missing, incomplete, skipped, unexpected or failed vault-test evidence')
+          PY
+          cd "$RUNNER_TEMP/keepassdx-upstream"
+          git diff --check
+          git diff --cached --exit-code
+          python3 - <<'PY'
+          import pathlib, subprocess
+          expected_status = {
+              ' M database/build.gradle.kts',
+              '?? database/src/main/java/com/vanipy/',
+              '?? database/src/androidTest/java/com/vanipy/',
+          }
+          actual_status = set(subprocess.check_output(['git','status','--porcelain'], text=True).splitlines())
+          if actual_status != expected_status:
+              raise SystemExit('Unexpected upstream source status: ' + repr(actual_status))
+          numstat = subprocess.check_output(['git','diff','--numstat'], text=True).splitlines()
+          if numstat != ['2\t0\tdatabase/build.gradle.kts']:
+              raise SystemExit('Expected exactly two test-build additions: ' + repr(numstat))
+          added = [line[1:] for line in subprocess.check_output(
+              ['git','diff','--unified=0'], text=True).splitlines()
+              if line.startswith('+') and not line.startswith('+++')]
+          expected_additions = {
+              '        multiDexEnabled = true',
+              '    androidTestImplementation("androidx.multidex:multidex:2.0.1")',
+          }
+          if set(added) != expected_additions or len(added) != 2:
+              raise SystemExit('Unexpected test-build patch lines: ' + repr(added))
+          gradle = pathlib.Path('database/build.gradle.kts').read_text()
+          if gradle.count('minSdk = 19') != 1:
+              raise SystemExit('Upstream minSdk baseline changed')
+          PY
+
+  fresh-write-interop:
+    if: github.event.repository.private == false
+    needs: emulator-vault-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      OVERLAY_REV: ${{ github.sha }}
+      OVERLAY_REPO: ${{ github.repository }}
+    steps:
+      - name: Download fresh KeePassDX-written fixture
+        uses: actions/download-artifact@v4
+        with:
+          name: saku-fresh-argon2id
+      - name: Fetch pinned interop check script
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            "https://raw.githubusercontent.com/$OVERLAY_REPO/$OVERLAY_REV/tools/check-fresh-kdbx.py" \
+            --output check-fresh-kdbx.py
+          printf '%s  %s\n' \
+            '60f3f3b9884019ba3ecf4f19bf8c0b512301265dbb65054deaa22c198bb9c0e8' check-fresh-kdbx.py | sha256sum --check
+      - name: Read the fresh fixture with pykeepass
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'pykeepass==4.2.0'
+          python3 check-fresh-kdbx.py saku-fresh-argon2id.kdbx | tee "$GITHUB_STEP_SUMMARY"
