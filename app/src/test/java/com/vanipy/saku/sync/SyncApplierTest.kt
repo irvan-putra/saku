@@ -43,7 +43,7 @@ class SyncApplierTest {
     @Test fun lowerSeqKeptLocal() {
         val a = applier()
         a.apply(env(5), p1)
-        assertEquals(SyncApplier.Outcome.KEPT_LOCAL, a.apply(env(4), p2))
+        assertEquals(SyncApplier.Outcome.KEPT_LOCAL, a.apply(env(4, body = p2), p2))
         assertArrayEquals(p1, a.currentPayload("SYNTHETIC-vault-a"))
     }
 
