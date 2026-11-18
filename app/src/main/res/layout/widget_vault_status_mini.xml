@@ -1,17 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 1x1 minimum: one clear locked-status badge, nothing else. Tap opens app. -->
+<!-- 1x1 minimum: one clear locked-status badge, nothing else. Tap opens app.
+     The badge is a fixed 48dp circle centered in the slot so it never
+     stretches into an oval when the host cell is not square. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_container"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:padding="6dp"
-    android:background="@drawable/widget_background_circle">
+    android:layout_height="match_parent">
 
-    <ImageView
-        android:id="@+id/widget_lock"
-        android:layout_width="22dp"
-        android:layout_height="22dp"
+    <FrameLayout
+        android:layout_width="48dp"
+        android:layout_height="48dp"
         android:layout_gravity="center"
-        android:src="@drawable/ic_lock"
-        android:contentDescription="@string/widget_lock_cd" />
+        android:background="@drawable/widget_background_circle">
+
+        <ImageView
+            android:id="@+id/widget_lock"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_lock"
+            android:contentDescription="@string/widget_lock_cd" />
+    </FrameLayout>
 </FrameLayout>
