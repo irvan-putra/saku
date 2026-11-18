@@ -1,27 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- One-row compact mode (e.g. 5x1): status line only, no metadata. -->
+<!-- One-row compact mode (e.g. 2x1..5x1): centered status text only, so it
+     stays readable from ~100dp wide; no metadata. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="horizontal"
     android:gravity="center"
-    android:paddingHorizontal="8dp"
+    android:paddingHorizontal="6dp"
     android:paddingVertical="8dp"
     android:background="@drawable/widget_background">
-
-    <ImageView
-        android:id="@+id/widget_lock"
-        android:layout_width="18dp"
-        android:layout_height="18dp"
-        android:src="@drawable/ic_lock"
-        android:contentDescription="@string/widget_lock_cd" />
 
     <TextView
         android:id="@+id/widget_status"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
         android:text="@string/widget_status_locked"
         android:textSize="13sp"
         android:textStyle="bold"

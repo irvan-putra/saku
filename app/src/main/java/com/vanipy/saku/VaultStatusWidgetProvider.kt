@@ -44,10 +44,10 @@ class VaultStatusWidgetProvider : AppWidgetProvider() {
             if (Build.VERSION.SDK_INT < 31) return compact
             return RemoteViews(linkedMapOf(
                 SizeF(40f, 40f) to views(context, R.layout.widget_vault_status_mini, withStatus = false),
-                // Compact strip needs ~130dp width for icon + "Vault: locked"
-                // to stay readable; narrower short cells fall back to the
-                // centered 1x1 badge instead of a squeezed strip.
-                SizeF(130f, 48f) to compact,
+                // Text-only compact strip stays readable from ~100dp, so
+                // two-column-wide short cells get the status, not a bare
+                // badge; narrower short cells keep the centered 1x1 badge.
+                SizeF(100f, 48f) to compact,
                 SizeF(110f, 110f) to views(context, R.layout.widget_vault_status_square, withStatus = true),
                 SizeF(180f, 110f) to views(context, R.layout.widget_vault_status, withStatus = true),
             ))

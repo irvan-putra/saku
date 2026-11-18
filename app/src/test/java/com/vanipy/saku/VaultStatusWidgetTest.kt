@@ -60,8 +60,7 @@ class VaultStatusWidgetTest {
 
     @Test fun compactLayoutIsOneStatusRowNoMetadata() {
         val f = facts(R.layout.widget_vault_status_compact)
-        assertEquals(setOf(R.id.widget_container, R.id.widget_lock,
-            R.id.widget_status), f.ids)
+        assertEquals(setOf(R.id.widget_container, R.id.widget_status), f.ids)
         assertEquals(1, f.tagCounts["TextView"])
         assertEquals(setOf(R.string.widget_status_locked), f.texts)
     }
