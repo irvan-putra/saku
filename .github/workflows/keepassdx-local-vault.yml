@@ -151,10 +151,22 @@ jobs:
           done
           curl --fail --silent --show-error --location \
             "$base/androidTest/LocalVaultStoreAndroidTest.kt" --output "$android_dest/LocalVaultStoreAndroidTest.kt"
+          curl --fail --silent --show-error --location \
+            "$base/androidTest/SyncPayloadAndroidTest.kt" --output "$android_dest/SyncPayloadAndroidTest.kt"
+          sync_dest=database/src/androidTest/java/com/vanipy/saku/sync
+          mkdir -p "$sync_dest"
+          appbase="https://raw.githubusercontent.com/$OVERLAY_REPO/$OVERLAY_REV/app/src/main/java/com/vanipy/saku/sync"
+          for name in SyncEnvelope.kt SyncMerge.kt; do
+            curl --fail --silent --show-error --location \
+              "$appbase/$name" --output "$sync_dest/$name"
+          done
           printf '%s\n' \
             'ae9ac56c2bfb0b61e04094c9c575c58565b02ea6e1bbc9edb5b380e9b057f243  database/src/main/java/com/vanipy/saku/vault/KdbxKdfBudgetGate.kt' \
             '459ef71b94dc7a9f72d306d02a922bb259e22bc6f78935ecd7c20fdc85f2876c  database/src/main/java/com/vanipy/saku/vault/LocalVaultStore.kt' \
-            '35dfb6a4d551b7ca5878334458fb35a93adfff69ce116e7f077df01ef0f97e85  database/src/androidTest/java/com/vanipy/saku/vault/LocalVaultStoreAndroidTest.kt' | sha256sum --check
+            '35dfb6a4d551b7ca5878334458fb35a93adfff69ce116e7f077df01ef0f97e85  database/src/androidTest/java/com/vanipy/saku/vault/LocalVaultStoreAndroidTest.kt' \
+            'f28a2677cc3d27415a7934ed637c97644199bf70d5c3e784dcb713d1167f5c3f  database/src/androidTest/java/com/vanipy/saku/vault/SyncPayloadAndroidTest.kt' \
+            '75497df841a4cbe8611b834ad3a17695cb7edaefd1c2e18a2cbfd45798f4c7e3  database/src/androidTest/java/com/vanipy/saku/sync/SyncEnvelope.kt' \
+            '6f14460dfa010bdd1392ef5c63a26cfe98c7090adaf3ada7a628d5b73cad2027  database/src/androidTest/java/com/vanipy/saku/sync/SyncMerge.kt' | sha256sum --check
           patch_file="$RUNNER_TEMP/keepassdx-test-multidex.patch"
           curl --fail --silent --show-error --location \
             "https://raw.githubusercontent.com/$OVERLAY_REPO/$OVERLAY_REV/prototypes/keepassdx-dummy-import/multidex-test-build.patch" \
@@ -164,7 +176,7 @@ jobs:
           git apply --check "$patch_file"
           git apply "$patch_file"
           test -z "$(git diff --cached --name-only)"
-          printf 'Pinned upstream `%s`, overlay `%s`; seven emulator vault tests only.\n' \
+          printf 'Pinned upstream `%s`, overlay `%s`; ten emulator vault tests only.\n' \
             "$UPSTREAM_REV" "$OVERLAY_REV" >> "$GITHUB_STEP_SUMMARY"
       - name: Install disposable Android emulator toolchain
         shell: bash
@@ -188,7 +200,7 @@ jobs:
           test -c /dev/kvm
           sudo chmod a+rw /dev/kvm
           "$ANDROID_HOME/emulator/emulator" -accel-check
-      - name: Boot fresh emulator and run only seven vault tests
+      - name: Boot fresh emulator and run only ten vault tests
         id: vault
         shell: bash
         run: |
@@ -253,7 +265,7 @@ jobs:
           done
           ./gradlew --no-daemon --console=plain --max-workers=2 \
             :database:connectedDebugAndroidTest \
-            -Pandroid.testInstrumentationRunnerArguments.class=com.vanipy.saku.vault.LocalVaultStoreAndroidTest \
+            -Pandroid.testInstrumentationRunnerArguments.class=com.vanipy.saku.vault.LocalVaultStoreAndroidTest,com.vanipy.saku.vault.SyncPayloadAndroidTest \
             -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
           # connectedDebugAndroidTest normally uninstalls the test APK when the
           # task finishes, wiping /sdcard/Android/data/<pkg> and the fixture in
@@ -314,17 +326,20 @@ jobs:
             'overBudgetMemoryRejectedBeforeTransform',
             'syntheticGateRefusesRealLookingSecrets',
             'freshFixtureExportedForInterop',
+            'envelopeDeliversSyntheticVaultToSecondStore',
+            'divergentSameSeqConflictLeavesTargetUntouched',
+            'tamperedEnvelopeRefusedBeforeVaultOpen',
           }
           reports = sorted(root.glob('database/build/outputs/androidTest-results/connected/**/TEST-*.xml'))
           cases = [case for report in reports for case in ET.parse(report).getroot().iter('testcase')]
           names = collections.Counter(case.attrib.get('name') for case in cases)
-          wrong_class = any(case.attrib.get('classname') != 'com.vanipy.saku.vault.LocalVaultStoreAndroidTest' for case in cases)
+          wrong_class = any(case.attrib.get('classname') not in {'com.vanipy.saku.vault.LocalVaultStoreAndroidTest', 'com.vanipy.saku.vault.SyncPayloadAndroidTest'} for case in cases)
           bad = any(any(case.find(tag) is not None for tag in ('failure','error','skipped')) for case in cases)
           good = (os.environ['VAULT_OUTCOME'] == 'success' and not wrong_class and not bad
                   and set(names) == expected and all(count == 1 for count in names.values()))
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
               out.write('\nVault command: ' + os.environ['VAULT_OUTCOME'] + '\n\n')
-              out.write('Reported cases: ' + str(len(cases)) + '; exact-seven evidence: ' + str(good) + '\n\n')
+              out.write('Reported cases: ' + str(len(cases)) + '; exact-ten evidence: ' + str(good) + '\n\n')
               out.write('\n'.join('- ' + str(name) + ': ' + str(count) for name,count in sorted(names.items())) + '\n\n')
               out.write('Synthetic private-file vault only. No UI, real vault, transport, SAF, actual process kill, power-loss or A24 claim.\n')
           if not good:

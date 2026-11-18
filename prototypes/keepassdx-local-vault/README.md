@@ -39,10 +39,15 @@ is not caught by `AESTransformer`'s `catch (Exception)`), so no vault
 roundtrip runs on the host.
 
 Android emulator (`androidTest/`, x86_64 API 34, same toolchain as the
-seven-storage-tests workflow): real native Argon2id create/unlock/add/reopen,
+dummy-storage workflow): real native Argon2id create/unlock/add/reopen,
 wrong-key, truncation and payload-tamper rejection, an over-budget patched
-header rejected pre-transform, synthetic-gate refusals, and export of a fresh
-KeePassDX-written fixture.
+header rejected pre-transform, synthetic-gate refusals, export of a fresh
+KeePassDX-written fixture, and sync-payload delivery: a SYNC1 envelope
+carrying a vault written by one store is decoded, merge-decided and opened
+by a second store, a divergent same-seq pair stays CONFLICT with the target
+byte-untouched, and a tampered envelope is refused before any vault open.
+The envelope codec itself (`app/.../sync/`, host-tested separately) is
+fetched into the test module at the same pinned revision.
 
 Fresh-write interoperability (`tools/check-fresh-kdbx.py`, CI job): the
 exported fixture written by KeePassDX code is read by pykeepass 4.2.0 (exact
