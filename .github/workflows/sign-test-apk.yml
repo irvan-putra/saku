@@ -102,6 +102,23 @@ jobs:
             test-summary.txt
             app/build/saku-mock-*-robolectric.png
           if-no-files-found: error
+  arm-probe:
+    # Capability probe only (sync-integration branch): does the free arm64
+    # runner support an Android emulator for a real runtime smoke test?
+    # No secrets, no accounts, no build - just host facts.
+    if: github.ref == 'refs/heads/sync-integration'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - name: Probe arm64 host capabilities
+        run: |
+          set -x
+          uname -m
+          ls -l /dev/kvm || echo "NO_KVM"
+          ls /usr/local/lib/android/sdk || echo "NO_PREINSTALLED_SDK"
+          echo "ANDROID_HOME=$ANDROID_HOME ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          df -h / | tail -1
+          free -m | head -2
   sign:
     needs: build
     if: ${{ inputs.operation == 'SIGN' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release-0.1.3') }}
