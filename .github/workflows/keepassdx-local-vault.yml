@@ -249,10 +249,18 @@ jobs:
           # Pull the fresh KeePassDX-written fixture while the emulator is up.
           # adb pull cannot open app files under /sdcard/Android/data on API 34
           # (run 44236091084: remote open failed: Permission denied); the debug
-          # test app itself can, via run-as. exec-out keeps the bytes exact.
-          adb exec-out run-as com.kunzisoft.keepass.database.test \
-            cat /sdcard/Android/data/com.kunzisoft.keepass.database.test/files/saku-fresh-argon2id.kdbx \
-            > "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx"
+          # test app itself can, via run-as. adb exec-out truncated the 1525-byte
+          # file to 260 bytes (run 44236642012), so transfer base64-armored over
+          # adb shell (CRLF stripped) and verify the hash against the device.
+          fixture=/sdcard/Android/data/com.kunzisoft.keepass.database.test/files/saku-fresh-argon2id.kdbx
+          device_hash=$(adb shell "run-as com.kunzisoft.keepass.database.test sha256sum $fixture" | tr -d '\r' | awk '{print $1}')
+          device_size=$(adb shell "run-as com.kunzisoft.keepass.database.test stat -c %s $fixture" | tr -d '\r')
+          adb shell "run-as com.kunzisoft.keepass.database.test base64 $fixture" \
+            | tr -d '\r' | base64 -d > "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx"
+          host_hash=$(sha256sum "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx" | awk '{print $1}')
+          host_size=$(stat -c %s "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx")
+          echo "device $device_size bytes $device_hash / host $host_size bytes $host_hash" >> "$GITHUB_STEP_SUMMARY"
+          test -n "$device_hash" && test "$host_hash" = "$device_hash" && test "$host_size" = "$device_size"
           test -s "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx"
           sha256sum "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx" >> "$GITHUB_STEP_SUMMARY"
           adb uninstall com.kunzisoft.keepass.database.test
