@@ -5,14 +5,14 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.io.File
 
 /**
  * Bounded background receive for the sync prototype. Starts the runtime,
- * polls once for SYNC1 envelopes, and files them under filesDir/sync-inbox
- * with a JSON sidecar. Nothing is applied to a vault here - automatic vault
- * application is the next milestone and keeps its original requirement.
+ * polls once for SYNC1 envelopes, and applies each through SyncApplier
+ * (SyncMerge-gated): APPLY_REMOTE writes the payload automatically (the
+ * original requirement), CONFLICT is filed byte-untouched, never resolved
+ * silently.
  *
  * arm64-v8a only: on other ABIs the runtime is unavailable and the worker
  * reports success without doing anything (sync stays "unavailable", never
@@ -32,20 +32,17 @@ class SyncWorker(appContext: Context, params: WorkerParameters) :
             return@withContext Result.success()
         }
         try {
-            val inbox = File(applicationContext.filesDir, "sync-inbox").apply { mkdirs() }
+            val applier = SyncApplier(File(applicationContext.filesDir, "vault-sync"))
             for (env in bridge.pollOnce(timeoutSec = 20)) {
-                val name = "${env.createdAtMs}-${env.deviceId}-${env.seq}"
-                File(inbox, "$name.sync1").writeBytes(env.payload)
-                File(inbox, "$name.json").writeText(
-                    JSONObject()
-                        .put("vaultId", env.vaultId)
-                        .put("deviceId", env.deviceId)
-                        .put("seq", env.seq)
-                        .put("baseSha256", env.baseSha256 ?: JSONObject.NULL)
-                        .put("payloadSha256", env.payloadSha256)
-                        .put("createdAtMs", env.createdAtMs)
-                        .toString(2)
+                val remote = SyncEnvelope(
+                    vaultId = env.vaultId,
+                    deviceId = env.deviceId,
+                    seq = env.seq,
+                    basePayloadSha256 = env.baseSha256,
+                    payloadSha256 = env.payloadSha256,
+                    createdAtEpochMs = env.createdAtMs,
                 )
+                applier.apply(remote, env.payload)
             }
             Result.success()
         } catch (t: Throwable) {
