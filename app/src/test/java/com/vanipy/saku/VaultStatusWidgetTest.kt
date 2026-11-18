@@ -74,7 +74,7 @@ class VaultStatusWidgetTest {
         assertEquals(emptySet<Int>(), f.texts)
     }
 
-    @Test fun providerInfoTargetsFiveByOneResizableToOneByOne() {
+    @Test fun providerInfoDefaultsOneByOneResizableUp() {
         val res = RuntimeEnvironment.getApplication().resources
         val parser = res.getXml(R.xml.widget_vault_status_info)
         var found = false
@@ -83,7 +83,7 @@ class VaultStatusWidgetTest {
                 found = true
                 assertEquals(0, parser.getAttributeIntValue(androidNs, "updatePeriodMillis", -1))
                 assertEquals(3, parser.getAttributeIntValue(androidNs, "resizeMode", -1)) // horizontal|vertical
-                assertEquals(5, parser.getAttributeIntValue(androidNs, "targetCellWidth", -1))
+                assertEquals(1, parser.getAttributeIntValue(androidNs, "targetCellWidth", -1)) // default 1x1 badge, resizable up
                 assertEquals(1, parser.getAttributeIntValue(androidNs, "targetCellHeight", -1))
                 assertEquals(R.layout.widget_vault_status,
                     parser.getAttributeResourceValue(androidNs, "initialLayout", 0))
