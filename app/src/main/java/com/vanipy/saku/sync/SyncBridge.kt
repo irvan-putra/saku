@@ -79,6 +79,9 @@ class SyncBridge(context: Context) {
         )
     }
 
+    private fun req(fields: Map<PyObject, PyObject>, key: String): PyObject =
+        fields[PyObject.fromJava(key)] ?: error("sync envelope missing field $key")
+
     /** One bounded poll; returns every SYNC1 envelope received in the window. */
     fun pollOnce(timeoutSec: Int): List<Incoming> {
         val rows = runtime.callAttr("poll_once", timeoutSec).asList()
@@ -86,12 +89,12 @@ class SyncBridge(context: Context) {
             val pair = row.asList()
             val fields = pair[0].asMap()
             Incoming(
-                vaultId = fields[PyObject.fromJava("vault_id")].toString(),
-                deviceId = fields[PyObject.fromJava("device_id")].toString(),
-                seq = fields[PyObject.fromJava("seq")].toJava(Long::class.java),
+                vaultId = req(fields, "vault_id").toString(),
+                deviceId = req(fields, "device_id").toString(),
+                seq = req(fields, "seq").toJava(Long::class.java),
                 baseSha256 = fields[PyObject.fromJava("base_sha256")]?.toString(),
-                payloadSha256 = fields[PyObject.fromJava("payload_sha256")].toString(),
-                createdAtMs = fields[PyObject.fromJava("created_at_ms")].toJava(Long::class.java),
+                payloadSha256 = req(fields, "payload_sha256").toString(),
+                createdAtMs = req(fields, "created_at_ms").toJava(Long::class.java),
                 payload = pair[1].toJava(ByteArray::class.java),
             )
         }
