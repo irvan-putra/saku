@@ -119,6 +119,42 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
           df -h / | tail -1
           free -m | head -2
+  native-x86_64:
+    # BRANCH-ONLY test-native build: librpcsrv.so for x86_64-android, built
+    # from pinned deltachat-core-rust v2.69.0 source (same version as the
+    # shipped arm64 pin from intodo) so an x86_64 emulator can execute the
+    # sync bridge. Test-only artifact: the shipped arm64-v8a jniLib is
+    # untouched. Provenance (core commit + .so sha256) goes to the summary.
+    if: github.ref == 'refs/heads/sync-integration'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Clone pinned deltachat-core-rust v2.69.0
+        run: |
+          git clone --depth 1 --branch v2.69.0 https://github.com/deltachat/deltachat-core-rust core
+          echo "core commit: $(git -C core rev-parse HEAD)" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-linux-android
+      - name: Install cargo-ndk (prebuilt)
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
+      - name: Build deltachat-rpc-server for x86_64-android
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
+        run: |
+          cd core
+          cargo ndk -t x86_64 build --release --package deltachat-rpc-server
+          ls -l target/x86_64-linux-android/release/deltachat-rpc-server
+          file target/x86_64-linux-android/release/deltachat-rpc-server
+          sha256sum target/x86_64-linux-android/release/deltachat-rpc-server | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload test-native artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: librpcsrv-x86_64-v2.69.0
+          path: core/target/x86_64-linux-android/release/deltachat-rpc-server
+          retention-days: 7
   sync-smoke:
     # Live synthetic runtime smoke (sync-integration branch only): runs the
     # repo's SyncRuntime (host-python) over two synthetic chatmail accounts
