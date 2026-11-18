@@ -6,7 +6,8 @@
     android:layout_height="match_parent"
     android:orientation="horizontal"
     android:gravity="center"
-    android:padding="12dp"
+    android:paddingHorizontal="8dp"
+    android:paddingVertical="8dp"
     android:background="@drawable/widget_background">
 
     <ImageView
@@ -22,7 +23,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
         android:text="@string/widget_status_locked"
-        android:textSize="14sp"
+        android:textSize="13sp"
         android:textStyle="bold"
         android:textColor="#FFFFFF" />
 </LinearLayout>
