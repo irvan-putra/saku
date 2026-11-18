@@ -237,12 +237,21 @@ jobs:
           adb shell input keyevent 82
           ./gradlew --no-daemon --console=plain --max-workers=2 \
             :database:connectedDebugAndroidTest \
-            -Pandroid.testInstrumentationRunnerArguments.class=com.vanipy.saku.vault.LocalVaultStoreAndroidTest
+            -Pandroid.testInstrumentationRunnerArguments.class=com.vanipy.saku.vault.LocalVaultStoreAndroidTest \
+            -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
+          # connectedDebugAndroidTest normally uninstalls the test APK when the
+          # task finishes, wiping /sdcard/Android/data/<pkg> and the fixture in
+          # it (run 44233964401: all 7 tests passed, then the pull found no
+          # file). Keep the APKs installed for the pull, then clean up. The
+          # next two lines also fail loudly if the wipe still happens.
+          adb shell pm list packages | grep com.kunzisoft.keepass.database.test
+          adb shell ls -la /sdcard/Android/data/com.kunzisoft.keepass.database.test/files/
           # Pull the fresh KeePassDX-written fixture while the emulator is up.
           adb pull /sdcard/Android/data/com.kunzisoft.keepass.database.test/files/saku-fresh-argon2id.kdbx \
             "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx"
           test -s "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx"
           sha256sum "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx" >> "$GITHUB_STEP_SUMMARY"
+          adb uninstall com.kunzisoft.keepass.database.test
       - name: Upload fresh fixture artifact
         if: success()
         uses: actions/upload-artifact@v4
