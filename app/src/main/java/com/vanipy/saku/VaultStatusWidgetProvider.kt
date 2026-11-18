@@ -15,9 +15,10 @@ import android.widget.RemoteViews
  * and there is no real vault behind this build. Every string shown is a static
  * resource, so the widget is synthetic by construction.
  *
- * Three size modes (size-mapped RemoteViews on API 31+, compact fallback
- * below): 1x1 mini badge (lock only), one-row compact (status + demo note),
- * expanded card. All are static and tap-through to MainActivity.
+ * Four size modes (size-mapped RemoteViews on API 31+, compact fallback
+ * below): 1x1 mini badge (lock only), one-row compact, square badge-over-
+ * status, expanded card. All are static and tap-through to MainActivity.
+ * Widget faces carry no demo wording; demo mode stays marked inside the app.
  */
 class VaultStatusWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -44,6 +45,7 @@ class VaultStatusWidgetProvider : AppWidgetProvider() {
             return RemoteViews(linkedMapOf(
                 SizeF(40f, 40f) to views(context, R.layout.widget_vault_status_mini, withStatus = false),
                 SizeF(110f, 48f) to compact,
+                SizeF(110f, 110f) to views(context, R.layout.widget_vault_status_square, withStatus = true),
                 SizeF(180f, 110f) to views(context, R.layout.widget_vault_status, withStatus = true),
             ))
         }

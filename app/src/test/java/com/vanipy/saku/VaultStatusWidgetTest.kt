@@ -11,9 +11,10 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.xmlpull.v1.XmlPullParser
 
-/** The demo widget shows locked-vault status and quick-open only, in three
- *  size modes (1x1 badge, one-row compact, expanded card): exact static
- *  strings, no counts, no strength, no other vault metadata. */
+/** The demo widget shows locked-vault status and quick-open only, in four
+ *  size modes (1x1 badge, one-row compact, square badge-over-status,
+ *  expanded card): exact static strings, no counts, no strength, no other
+ *  vault metadata, and no demo wording on the widget faces. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class VaultStatusWidgetTest {
@@ -40,12 +41,11 @@ class VaultStatusWidgetTest {
         return LayoutFacts(ids, texts, tagCounts)
     }
 
-    @Test fun widgetStringsKeepLockedOnlyDemoFraming() {
+    @Test fun widgetStringsLockedOnlyNoDemoTextOnFaces() {
         val ctx = RuntimeEnvironment.getApplication()
         assertEquals("Vault: locked", ctx.getString(R.string.widget_status_locked))
-        assertEquals("Demo widget - synthetic data only", ctx.getString(R.string.widget_demo_note))
-        assertEquals("saku vault: locked (demo)", ctx.getString(R.string.widget_lock_cd))
-        assertEquals("demo - synthetic only", ctx.getString(R.string.widget_demo_short))
+        assertEquals("saku vault: locked", ctx.getString(R.string.widget_lock_cd))
+        // Picker description keeps the demo caveat (shown in the picker, not on a placed face).
         assertEquals("saku vault status (demo, no real secrets)", ctx.getString(R.string.widget_description))
     }
 
@@ -53,18 +53,17 @@ class VaultStatusWidgetTest {
         val f = facts(R.layout.widget_vault_status)
         assertEquals(
             setOf(R.id.widget_container, R.id.widget_icon, R.id.widget_title,
-                R.id.widget_status, R.id.widget_demo_note), f.ids)
-        assertEquals(3, f.tagCounts["TextView"])
-        assertEquals(setOf(R.string.widget_title, R.string.widget_status_locked,
-            R.string.widget_demo_note), f.texts)
+                R.id.widget_status), f.ids)
+        assertEquals(2, f.tagCounts["TextView"])
+        assertEquals(setOf(R.string.widget_title, R.string.widget_status_locked), f.texts)
     }
 
     @Test fun compactLayoutIsOneStatusRowNoMetadata() {
         val f = facts(R.layout.widget_vault_status_compact)
         assertEquals(setOf(R.id.widget_container, R.id.widget_lock,
-            R.id.widget_status, R.id.widget_demo_note), f.ids)
-        assertEquals(2, f.tagCounts["TextView"])
-        assertEquals(setOf(R.string.widget_status_locked, R.string.widget_demo_short), f.texts)
+            R.id.widget_status), f.ids)
+        assertEquals(1, f.tagCounts["TextView"])
+        assertEquals(setOf(R.string.widget_status_locked), f.texts)
     }
 
     @Test fun miniLayoutIsSingleLockBadgeNoText() {
@@ -72,6 +71,13 @@ class VaultStatusWidgetTest {
         assertEquals(setOf(R.id.widget_container, R.id.widget_lock), f.ids)
         assertEquals(null, f.tagCounts["TextView"])
         assertEquals(emptySet<Int>(), f.texts)
+    }
+
+    @Test fun squareLayoutIsCenteredBadgeOverStatusNoMetadata() {
+        val f = facts(R.layout.widget_vault_status_square)
+        assertEquals(setOf(R.id.widget_container, R.id.widget_lock, R.id.widget_status), f.ids)
+        assertEquals(1, f.tagCounts["TextView"])
+        assertEquals(setOf(R.string.widget_status_locked), f.texts)
     }
 
     @Test fun providerInfoDefaultsOneByOneResizableUp() {
