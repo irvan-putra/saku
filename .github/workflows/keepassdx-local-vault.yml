@@ -235,6 +235,22 @@ jobs:
           test "$(adb shell getprop ro.build.version.sdk | tr -d '\r')" = 34
           test "$(adb shell getprop ro.product.cpu.abi | tr -d '\r')" = x86_64
           adb shell input keyevent 82
+          # Fixture transfer needs more than the shell user may read under
+          # /sdcard/Android/data on API 34 (run 44236091084: pull "Permission
+          # denied"; run 44238458182: run-as "Permission denied" - run-as does
+          # not enter the app's storage mount namespace). The AOSP default
+          # x86_64 image is userdebug, so root adbd; fail early, before any
+          # test time, if this image ever refuses.
+          adb root
+          adb wait-for-device
+          root_deadline=$((SECONDS + 60))
+          while [ "$(adb shell id -u 2>/dev/null | tr -d '\r')" != "0" ]; do
+            if [ "$SECONDS" -ge "$root_deadline" ]; then
+              echo 'adb root refused by this emulator image; cannot pull the fixture.'
+              exit 1
+            fi
+            sleep 1
+          done
           ./gradlew --no-daemon --console=plain --max-workers=2 \
             :database:connectedDebugAndroidTest \
             -Pandroid.testInstrumentationRunnerArguments.class=com.vanipy.saku.vault.LocalVaultStoreAndroidTest \
@@ -246,21 +262,29 @@ jobs:
           # next two lines also fail loudly if the wipe still happens.
           adb shell pm list packages | grep com.kunzisoft.keepass.database.test
           adb shell ls -la /sdcard/Android/data/com.kunzisoft.keepass.database.test/files/
-          # Pull the fresh KeePassDX-written fixture while the emulator is up.
-          # adb pull cannot open app files under /sdcard/Android/data on API 34
-          # (run 44236091084: remote open failed: Permission denied); the debug
-          # test app itself can, via run-as. adb exec-out truncated the 1525-byte
-          # file to 260 bytes (run 44236642012), so transfer base64-armored over
-          # adb shell (CRLF stripped) and verify the hash against the device.
+          # Pull the fresh KeePassDX-written fixture while the emulator is up
+          # (adbd runs as root since the boot step above). The mandatory gate:
+          # device and host sha256 + size must match exactly, and the bytes must
+          # carry the KDBX signature, so permission-error text or a truncated
+          # transfer can never be archived as fixture data.
           fixture=/sdcard/Android/data/com.kunzisoft.keepass.database.test/files/saku-fresh-argon2id.kdbx
-          device_hash=$(adb shell "run-as com.kunzisoft.keepass.database.test sha256sum $fixture" | tr -d '\r' | awk '{print $1}')
-          device_size=$(adb shell "run-as com.kunzisoft.keepass.database.test stat -c %s $fixture" | tr -d '\r')
-          adb shell "run-as com.kunzisoft.keepass.database.test base64 $fixture" \
-            | tr -d '\r' | base64 -d > "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx"
+          device_hash=$(adb shell "sha256sum $fixture" | tr -d '\r' | awk '{print $1}')
+          device_size=$(adb shell "stat -c %s $fixture" | tr -d '\r')
+          adb pull "$fixture" "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx"
           host_hash=$(sha256sum "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx" | awk '{print $1}')
           host_size=$(stat -c %s "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx")
           echo "device $device_size bytes $device_hash / host $host_size bytes $host_hash" >> "$GITHUB_STEP_SUMMARY"
           test -n "$device_hash" && test "$host_hash" = "$device_hash" && test "$host_size" = "$device_size"
+          python3 - "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx" <<'PYCHECK'
+          import sys
+          data = open(sys.argv[1], 'rb').read(12)
+          assert len(data) == 12, 'fixture shorter than the KDBX header'
+          assert data[:4] == bytes.fromhex('03d9a29a'), 'bad KDBX signature 1: ' + data.hex()
+          assert data[4:8] == bytes.fromhex('67fb4bb5'), 'bad KDBX signature 2: ' + data.hex()
+          major = int.from_bytes(data[10:12], 'little')
+          assert major == 4, 'expected KDBX major version 4, got ' + str(major)
+          print('KDBX signature and major version 4 verified on host bytes')
+          PYCHECK
           test -s "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx"
           sha256sum "$GITHUB_WORKSPACE/saku-fresh-argon2id.kdbx" >> "$GITHUB_STEP_SUMMARY"
           adb uninstall com.kunzisoft.keepass.database.test
