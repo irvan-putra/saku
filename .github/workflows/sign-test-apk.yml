@@ -119,6 +119,46 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
           df -h / | tail -1
           free -m | head -2
+  sync-smoke:
+    # Live synthetic runtime smoke (sync-integration branch only): runs the
+    # repo's SyncRuntime (host-python) over two synthetic chatmail accounts
+    # on nine.testrun.org. Requires repo secrets SAKU_SYNC_ADDR_A /
+    # SAKU_SYNC_MAIL_PW_A / SAKU_SYNC_ADDR_B / SAKU_SYNC_MAIL_PW_B; skips
+    # cleanly while they are absent (user approval pending). Synthetic data
+    # only. This is runtime-logic proof, NOT Android/background proof.
+    if: github.ref == 'refs/heads/sync-integration'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install rpc runtime (pinned)
+        run: |
+          pip install deltachat-rpc-server==2.69.0 "deltachat-rpc-client @ git+https://github.com/irvan-putra/encore@c89d6294fea0599048f5c5b78cc1df38d3c81d3c#subdirectory=deltachat-rpc-client"
+      - name: Secrets gate
+        id: gate
+        env:
+          A: ${{ secrets.SAKU_SYNC_ADDR_A }}
+          PA: ${{ secrets.SAKU_SYNC_MAIL_PW_A }}
+          B: ${{ secrets.SAKU_SYNC_ADDR_B }}
+          PB: ${{ secrets.SAKU_SYNC_MAIL_PW_B }}
+        run: |
+          if [ -n "$A" ] && [ -n "$PA" ] && [ -n "$B" ] && [ -n "$PB" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::synthetic sync secrets absent - skipping live smoke (approval pending)"
+          fi
+      - name: Run live synthetic sync smoke
+        if: steps.gate.outputs.present == 'true'
+        env:
+          SAKU_SYNC_ADDR_A: ${{ secrets.SAKU_SYNC_ADDR_A }}
+          SAKU_SYNC_MAIL_PW_A: ${{ secrets.SAKU_SYNC_MAIL_PW_A }}
+          SAKU_SYNC_ADDR_B: ${{ secrets.SAKU_SYNC_ADDR_B }}
+          SAKU_SYNC_MAIL_PW_B: ${{ secrets.SAKU_SYNC_MAIL_PW_B }}
+        run: python3 tools/sync-runtime-smoke.py
   sign:
     needs: build
     if: ${{ inputs.operation == 'SIGN' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release-0.1.3') }}
