@@ -5,6 +5,14 @@ com.vanipy.saku.KdbxSpikeTest.wrongPasswordFails
 com.vanipy.saku.ScreenRenderTest.renderDetail
 com.vanipy.saku.ScreenRenderTest.renderMain
 com.vanipy.saku.ScreenRenderTest.renderPairing
+com.vanipy.saku.VaultStatusWidgetTest.compactLayoutIsOneStatusRowNoMetadata
+com.vanipy.saku.VaultStatusWidgetTest.expandedLayoutContainsOnlyStatusFieldsNoMetadata
+com.vanipy.saku.VaultStatusWidgetTest.miniLayoutIsSingleLockBadgeNoText
+com.vanipy.saku.VaultStatusWidgetTest.providerInfoDefaultsOneByOneResizableUp
+com.vanipy.saku.VaultStatusWidgetTest.providerReceiverIsRegisteredNonExported
+com.vanipy.saku.VaultStatusWidgetTest.quickOpenTargetsMainActivityAndViewsBuild
+com.vanipy.saku.VaultStatusWidgetTest.squareLayoutIsCenteredBadgeOverStatusNoMetadata
+com.vanipy.saku.VaultStatusWidgetTest.widgetStringsLockedOnlyNoDemoTextOnFaces
 com.vanipy.saku.VaultTest.archiveFilter
 com.vanipy.saku.VaultTest.blankSiteRefused
 com.vanipy.saku.VaultTest.modelCarriesBothTimestamps
