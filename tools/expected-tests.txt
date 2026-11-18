@@ -19,3 +19,15 @@ com.vanipy.saku.VaultTest.modelCarriesBothTimestamps
 com.vanipy.saku.VaultTest.realPasswordRefused
 com.vanipy.saku.VaultTest.storeRefusesOpen
 com.vanipy.saku.VaultTest.syntheticAccepted
+com.vanipy.saku.sync.SyncGroundworkTest.deterministicEncoding
+com.vanipy.saku.sync.SyncGroundworkTest.encodeDecodeRoundtrip
+com.vanipy.saku.sync.SyncGroundworkTest.mergeAppliesHigherSeqAndNewLocal
+com.vanipy.saku.sync.SyncGroundworkTest.mergeKeepsLocalOnLowerSeq
+com.vanipy.saku.sync.SyncGroundworkTest.mergeSameSeqDivergentOrDifferentVaultConflicts
+com.vanipy.saku.sync.SyncGroundworkTest.mergeSameSeqSamePayloadIsSame
+com.vanipy.saku.sync.SyncGroundworkTest.payloadHashMatchesSha256
+com.vanipy.saku.sync.SyncGroundworkTest.rejectsBadVersion
+com.vanipy.saku.sync.SyncGroundworkTest.rejectsNonSyntheticIds
+com.vanipy.saku.sync.SyncGroundworkTest.rejectsOversizedPayload
+com.vanipy.saku.sync.SyncGroundworkTest.rejectsPayloadHashMismatch
+com.vanipy.saku.sync.SyncGroundworkTest.rejectsTruncatedAndMissingLines
