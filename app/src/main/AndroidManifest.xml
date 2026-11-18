@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- MOCK BUILD: no permissions at all. INTERNET intentionally absent until
-     protocol review sign-off. Autofill intentionally absent (not faked). -->
+<!-- sync-integration dev branch: INTERNET added for the DeltaChat sync
+     runtime (IMAP/SMTP via the bundled rpc server). This intentionally
+     changes the mock build's no-network property ON THIS BRANCH ONLY:
+     released builds (0.1.3) contain no sync code. A protocol review
+     sign-off is still required before any sync-bearing release.
+     Autofill intentionally absent (not faked). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.INTERNET" />
   <application android:label="@string/app_label" android:icon="@mipmap/ic_launcher"
       android:allowBackup="false" android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
     <activity android:name=".MainActivity" android:exported="true">

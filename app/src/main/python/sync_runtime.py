@@ -138,6 +138,18 @@ class SyncRuntime:
                                created_at_ms, payload)
         self.verified_chat(peer_addr).send_text(wire.decode("utf-8"))
 
+    def account_addr(self):
+        acct = self.account()
+        for t in acct.list_transports() or []:
+            if (t or {}).get("addr"):
+                return t["addr"]
+        return acct.get_config("addr")
+
+    def poll_once(self, timeout_s=30):
+        """Bounded poll returning a plain list of (fields, payload) -
+        generator results are awkward across the chaquopy bridge."""
+        return list(self.poll_envelopes(timeout_s))
+
     def poll_envelopes(self, timeout_s=30):
         """Yield (fields, payload) for incoming SYNC1 messages until the
         deadline. Unknown/foreign messages are marked noticed and skipped."""
