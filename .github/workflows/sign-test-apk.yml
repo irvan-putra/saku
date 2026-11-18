@@ -141,8 +141,8 @@ jobs:
         with:
           tool: cargo-ndk
       - name: Build deltachat-rpc-server for x86_64-android
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
+        # No ANDROID_NDK_HOME override: the runner exports ANDROID_NDK_ROOT
+        # (currently ndk/27.3.13750724) and cargo-ndk auto-detects it.
         run: |
           cd core
           cargo ndk -t x86_64 build --release --package deltachat-rpc-server
