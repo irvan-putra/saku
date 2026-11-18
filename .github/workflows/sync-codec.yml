@@ -1,0 +1,24 @@
+name: Sync envelope codec (python mirror)
+# Dispatch-only, like the other saku workflows. Host-only: runs the SYNC1
+# python codec tests that mirror SyncEnvelope.kt byte-for-byte. No Android,
+# no network accounts, no secrets - pure codec qualification.
+on:
+  workflow_dispatch:
+permissions: {}
+jobs:
+  codec:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run SYNC1 codec tests
+        run: python3 -m unittest discover -s app/src/main/python -p 'test_*.py' -v
+      - name: Gate on exact test count
+        run: |
+          count=$(python3 -m unittest discover -s app/src/main/python -p 'test_*.py' -v 2>&1 | grep -c ' \.\.\. ok$')
+          echo "codec tests ok: $count" >> "$GITHUB_STEP_SUMMARY"
+          test "$count" -eq 10

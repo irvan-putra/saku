@@ -1,10 +1,16 @@
-plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
+plugins { id 'com.android.application'; id 'com.chaquo.python'; id 'org.jetbrains.kotlin.android' }
 android {
   namespace 'com.vanipy.saku'
   compileSdk 34
-  defaultConfig { applicationId "com.vanipy.saku"; minSdk 24; targetSdk 34; versionCode((project.findProperty("versionCode") ?: "4") as Integer); versionName((project.findProperty("versionName") ?: "0.1.2") as String) }
+  defaultConfig { applicationId "com.vanipy.saku"; minSdk 24; targetSdk 34; versionCode((project.findProperty("versionCode") ?: "4") as Integer); versionName((project.findProperty("versionName") ?: "0.1.2") as String)
+    // Chaquopy requires an explicit abiFilters list. Both ABIs keep the APK
+    // installable on the x86_64 CI emulator (widget harness) while the
+    // bundled DeltaChat rpc server (src/main/jniLibs) ships arm64-v8a only,
+    // same constraint as intodo: the sync runtime is arm64-only at runtime.
+    ndk { abiFilters 'arm64-v8a', 'x86_64' } }
   buildTypes { release { minifyEnabled false } }
   compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+  packagingOptions { jniLibs { useLegacyPackaging = true } }
   testOptions { unitTests.includeAndroidResources = true }
   kotlinOptions { jvmTarget = '17' }
   applicationVariants.all { variant -> variant.outputs.all { outputFileName = "saku-${variant.versionName}.apk" } }
@@ -25,3 +31,15 @@ dependencies {
 tasks.withType(Test).configureEach { jvmArgs '--add-opens=java.base/java.util=ALL-UNNAMED' }
 
 dependencies { testImplementation "org.robolectric:robolectric:4.12.2" }
+
+// DeltaChat sync runtime (prototype, synthetic-only). Mirrors the proven
+// intodo pattern: encore fork pin + cryptography + bundled librpcsrv.so in
+// app/src/main/jniLibs/arm64-v8a (binary identical to intodo's pin).
+chaquopy {
+    defaultConfig {
+        pip {
+            install 'deltachat-rpc-client @ git+https://github.com/irvan-putra/encore@c89d6294fea0599048f5c5b78cc1df38d3c81d3c#subdirectory=deltachat-rpc-client'
+            install 'cryptography'
+        }
+    }
+}
