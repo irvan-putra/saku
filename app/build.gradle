@@ -2,7 +2,7 @@ plugins { id 'com.android.application'; id 'com.chaquo.python'; id 'org.jetbrain
 android {
   namespace 'com.vanipy.saku'
   compileSdk 34
-  defaultConfig { applicationId "com.vanipy.saku"; minSdk 24; targetSdk 34; versionCode((project.findProperty("versionCode") ?: "4") as Integer); versionName((project.findProperty("versionName") ?: "0.1.2") as String)
+  defaultConfig { applicationId "com.vanipy.saku"; minSdk 24; targetSdk 34; versionCode((project.findProperty("versionCode") ?: "4") as Integer); versionName((project.findProperty("versionName") ?: "0.1.2") as String); testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     // Chaquopy requires an explicit abiFilters list. Both ABIs keep the APK
     // installable on the x86_64 CI emulator (widget harness) while the
     // bundled DeltaChat rpc server (src/main/jniLibs) ships arm64-v8a only,
@@ -23,6 +23,11 @@ dependencies {
   implementation 'androidx.work:work-runtime:2.9.1'
   implementation 'com.google.zxing:core:3.5.3'
   testImplementation 'junit:junit:4.13.2'
+  // On-emulator sync qualification (branch-only proof path).
+  androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+  androidTestImplementation 'androidx.test:runner:1.6.2'
+  androidTestImplementation 'androidx.test:core:1.6.1'
+  androidTestImplementation 'androidx.work:work-testing:2.9.1'
 }
 // Storage spike (host JVM only, synthetic data): KeePassJava2 candidates under test.
 dependencies {
