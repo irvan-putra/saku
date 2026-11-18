@@ -31,7 +31,7 @@ env:
   BUILD_TOOLS_VERSION: 34.0.0
 jobs:
   gate:
-    if: ${{ (inputs.operation == 'QUALIFY' || inputs.operation == 'SIGN') && github.ref == 'refs/heads/main' }}
+    if: ${{ (inputs.operation == 'QUALIFY' || inputs.operation == 'SIGN') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release-0.1.3' || github.ref == 'refs/heads/sync-integration') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -46,7 +46,7 @@ jobs:
           python3 tools/test-check-manifest-permissions.py
   build:
     needs: gate
-    if: ${{ (inputs.operation == 'QUALIFY' || inputs.operation == 'SIGN') && github.ref == 'refs/heads/main' }}
+    if: ${{ (inputs.operation == 'QUALIFY' || inputs.operation == 'SIGN') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release-0.1.3' || github.ref == 'refs/heads/sync-integration') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     outputs:
@@ -101,7 +101,7 @@ jobs:
           if-no-files-found: error
   sign:
     needs: build
-    if: ${{ inputs.operation == 'SIGN' && github.ref == 'refs/heads/main' }}
+    if: ${{ inputs.operation == 'SIGN' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release-0.1.3') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
