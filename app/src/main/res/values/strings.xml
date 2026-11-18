@@ -6,4 +6,6 @@
   <string name="widget_status_locked">Vault: locked</string>
   <string name="widget_demo_note">Demo widget - synthetic data only</string>
   <string name="widget_description">saku vault status (demo, no real secrets)</string>
+  <string name="widget_lock_cd">saku vault: locked (demo)</string>
+  <string name="widget_demo_short">demo - synthetic only</string>
 </resources>
