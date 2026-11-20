@@ -1,0 +1,7 @@
+{
+  "name": "saku-web-tests",
+  "private": true,
+  "description": "Synthetic tests for the Saku web vault preview (fake data only). Test-only dependency: an XML DOM for Node, because the browser has one built in.",
+  "scripts": { "test": "node run.mjs" },
+  "dependencies": { "@xmldom/xmldom": "0.8.12" }
+}
