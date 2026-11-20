@@ -55,7 +55,7 @@ async function unlock(buf, pw) {
     catch (x) { db = null; throw new Error("The end of this file failed its integrity check. It may be damaged or altered, so it was not opened."); }
     finally { lastKey = null; }
     setErr(""); show(); $("integ").textContent = note; }
-  catch (x) { db = null; setErr(x && x.code === "InvalidKey" ? "Wrong password, or not a KeePass file." : (x && x.message) || "Could not open that file."); }
+  catch (x) { db = null; lastKey = null; setErr(x && x.code === "InvalidKey" ? "Wrong password, or not a KeePass file." : (x && x.message) || "Could not open that file."); }
   $("pw").value = ""; $("demo").disabled = false; chk();
 }
 $("open").onclick = () => unlock(fileBuf, $("pw").value);
@@ -107,11 +107,15 @@ $("apply").onclick = () => {
 $("del").onclick = () => { if (!cur || !confirm("Delete this entry? It moves to the vault's recycle bin.")) return; db.remove(cur); cur = null; dirty = true; $("detail").hidden = true; render(); bump(); };
 $("q").oninput = render;
 $("save").onclick = async () => {
-  try { const buf = await db.save(), a = document.createElement("a"), u = URL.createObjectURL(new Blob([buf], {type: "application/octet-stream"}));
+  try { /* kdbxweb writes an empty value for icon, expanded and search flags on items that had none; KeePassXC rejects that. "null" is the KeePass default value. */
+    const fixE = e => { if (e.icon === undefined) e.icon = 0; (e.history || []).forEach(fixE); };
+    const fixG = g => { if (g.enableSearching === undefined) g.enableSearching = null; if (g.enableAutoType === undefined) g.enableAutoType = null; if (g.icon === undefined) g.icon = 48; if (g.expanded === undefined) g.expanded = true; g.entries.forEach(fixE); g.groups.forEach(fixG); }; db.groups.forEach(fixG);
+    const buf = await db.save(), a = document.createElement("a"), u = URL.createObjectURL(new Blob([buf], {type: "application/octet-stream"}));
     a.href = u; a.download = ((db.meta.name || "vault").replace(/[^\w.-]+/g, "_") || "vault") + ".kdbx"; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 5000); dirty = false; render();
   } catch (x) { $("dmsg").textContent = "Could not save: " + x.message; }
 };
 function lock(force) {
+  lastKey = null;
   if (dirty && !force && !confirm("You have unsaved changes. Lock anyway and lose them?")) return;
   db = null; cur = null; dirty = false; fileBuf = null; $("fname").textContent = ""; $("detail").hidden = true; $("list").replaceChildren(); $("q").value = ""; ["f_t", "f_u", "f_p", "f_l", "f_n"].forEach(i => $(i).value = "");
   $("unlocked").hidden = true; $("locked").hidden = false; clearTimeout(idle); chk();
