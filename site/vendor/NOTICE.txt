@@ -1,0 +1,4 @@
+Third-party code in vendor/ (unchanged builds from npm):
+- kdbxweb 2.1.1, MIT, (c) Antelle: https://github.com/keeweb/kdbxweb
+- hash-wasm 4.13.0 (Argon2), MIT, (c) Dani Biro: https://github.com/Daninet/hash-wasm
+Their licence texts are alongside. This notice does not select a licence for Saku.

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'none'; base-uri 'none'">
+<title>Saku web vault (synthetic preview)</title><link rel="stylesheet" href="style.css"></head><body><main>
+<h1>Saku web vault</h1>
+<p class="warn"><strong>Development preview. Not audited.</strong> Try it with the demo vault. Do not put real passwords in it yet. This page is not Saku Android and does not sync with it.</p>
+<p class="mut">It opens and edits KeePass-format (KDBX 4) files on this device. The file stays in this tab: nothing is uploaded and nothing is saved in the browser. Save with the Save button, which downloads a new file. The page loads no outside scripts and can only contact its own site (to fetch the demo file).</p>
+
+<section id="locked" class="card">
+  <h2>Open a vault</h2>
+  <label class="btn">Choose a .kdbx file<input id="file" type="file" accept=".kdbx"></label><span id="fname" class="mut"></span>
+  <label for="pw">Master password</label>
+  <input id="pw" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
+  <button id="open" disabled>Unlock</button> <button id="demo" class="alt">Open the demo vault</button>
+  <p class="mut" id="demohint">Demo vault password: <code>demo-not-real</code> (fake entries only).</p>
+  <p id="err" class="bad" role="alert"></p>
+  <hr>
+  <h2>Or start a new vault</h2>
+  <label for="nname">Vault name</label><input id="nname" type="text" value="My vault" autocomplete="off">
+  <label for="npw">New master password</label><input id="npw" type="password" autocomplete="new-password" spellcheck="false">
+  <label for="npw2">Repeat it</label><input id="npw2" type="password" autocomplete="new-password" spellcheck="false">
+  <button id="create">Create vault</button>
+  <p class="mut">There is no recovery. If you forget the master password, the file cannot be opened.</p>
+</section>
+
+<section id="unlocked" class="card" hidden>
+  <div class="bar"><strong id="vname"></strong> <span id="dirty" class="mut"></span>
+    <span><button id="save">Save (download)</button><button id="lock" class="alt">Lock</button></span></div>
+  <input id="q" type="search" placeholder="Search" autocomplete="off">
+  <ul id="list"></ul>
+  <button id="add" class="alt">Add entry</button>
+  <div id="detail" hidden>
+    <h2 id="dtitle"></h2>
+    <label>Title<input id="f_t" type="text" autocomplete="off"></label>
+    <label>Username<input id="f_u" type="text" autocomplete="off"></label>
+    <label>Password<input id="f_p" type="password" autocomplete="off" spellcheck="false"></label>
+    <div><button id="show" class="alt">Show</button><button id="copy" class="alt">Copy</button><button id="gen" class="alt">Generate</button></div>
+    <label>URL<input id="f_l" type="text" autocomplete="off"></label>
+    <label>Notes<textarea id="f_n" rows="3"></textarea></label>
+    <div><button id="apply">Apply changes</button><button id="del" class="alt">Delete</button></div>
+    <p class="mut" id="dmsg"></p>
+  </div>
+  <p class="mut">The vault locks itself after 5 minutes without use. Copied passwords are cleared from the clipboard after 30 seconds if the browser allows it.</p>
+</section>
+<p class="mut"><a href="https://github.com/irvan-putra/saku">Source</a> · <a href="https://github.com/irvan-putra/saku/releases">Android demo</a> · Built with <a href="https://github.com/keeweb/kdbxweb">kdbxweb</a> and <a href="https://github.com/Daninet/hash-wasm">hash-wasm</a> (both MIT, see vendor/).</p>
+</main>
+<script src="vendor/kdbxweb.min.js"></script><script src="vendor/argon2.umd.min.js"></script><script src="vault.js"></script></body></html>
