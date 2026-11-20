@@ -2,13 +2,43 @@
 /* Local-only KDBX vault page. Crypto is kdbxweb (WebCrypto) and hash-wasm Argon2; nothing here implements a primitive. */
 const $ = id => document.getElementById(id);
 const kw = window.kdbxweb;
-const LIMITS = {memKiB: 1024 * 1024, iterations: 100, parallelism: 16}; /* hostile-KDF guard; values are a proposal for review */
+const LIMITS = {softMemKiB: 256 * 1024, memKiB: 1024 * 1024, iterations: 100, parallelism: 16}; /* hostile-KDF guards; values are a proposal for review */
+let lastKey = null; /* copy of the last Argon2 output, used only for the file-ending check below */
 kw.CryptoEngine.setArgon2Impl(async (password, salt, memory, iterations, length, parallelism, type) => {
   if (memory > LIMITS.memKiB || iterations > LIMITS.iterations || parallelism > LIMITS.parallelism) throw new Error("This file asks for more key-stretching work than this page allows (memory " + Math.round(memory / 1024) + " MiB, " + iterations + " rounds). It was not opened.");
+  if (memory > LIMITS.softMemKiB && !confirm("This vault needs " + Math.round(memory / 1024) + " MiB of memory to unlock. That can crash a phone or a small browser tab. Continue?")) throw new Error("Cancelled: the vault needs " + Math.round(memory / 1024) + " MiB to unlock.");
   const fn = type === 2 ? window.hashwasm.argon2id : window.hashwasm.argon2d;
-  const out = await fn({password: new Uint8Array(password), salt: new Uint8Array(salt), parallelism, iterations, memorySize: memory, hashLength: length, outputType: "binary"});
+  let out;
+  try { out = await fn({password: new Uint8Array(password), salt: new Uint8Array(salt), parallelism, iterations, memorySize: memory, hashLength: length, outputType: "binary"}); }
+  catch (x) { throw new Error("The browser could not allocate the memory this vault needs (" + Math.round(memory / 1024) + " MiB)."); }
+  lastKey = out.slice();
   return out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength);
 });
+/* kdbxweb 2.1.1 reads the closing (empty) HMAC block of a KDBX 4 file but never checks it, nor what follows it.
+   This re-checks it with the same keys and WebCrypto, so a cut or altered file ending is refused. */
+async function checkFileEnd(buf, key) {
+  const u = new Uint8Array(buf), d = new DataView(buf);
+  if (u.length < 64 || d.getUint16(10, true) !== 4) return "skipped";
+  let p = 12, seed = null;
+  for (;;) { if (p + 5 > u.length) throw new Error("bad header"); const id = u[p], len = d.getUint32(p + 1, true); p += 5; if (p + len > u.length) throw new Error("bad header"); if (id === 4) seed = u.slice(p, p + len); p += len; if (id === 0) break; }
+  if (!seed || seed.length !== 32 || !key) return "skipped";
+  const cat = (...a) => { const o = new Uint8Array(a.reduce((n, x) => n + x.length, 0)); let q = 0; for (const x of a) { o.set(x, q); q += x.length; } return o; };
+  const sha512 = async x => new Uint8Array(await crypto.subtle.digest("SHA-512", x));
+  const hmacBase = await sha512(cat(seed, new Uint8Array(key), Uint8Array.of(1)));
+  p += 64; let n = 0;
+  for (;;) {
+    if (p + 36 > u.length) throw new Error("truncated");
+    const mac = u.slice(p, p + 32), len = d.getUint32(p + 32, true); p += 36;
+    if (len === 0) {
+      const idx = new Uint8Array(8); new DataView(idx.buffer).setUint32(0, n, true);
+      const bk = await sha512(cat(idx, hmacBase)), k = await crypto.subtle.importKey("raw", bk, {name: "HMAC", hash: "SHA-256"}, false, ["verify"]);
+      const ok = await crypto.subtle.verify("HMAC", k, mac, cat(idx, new Uint8Array(4)));
+      if (!ok || p !== u.length) throw new Error("bad ending");
+      return "ok";
+    }
+    p += len; n++;
+  }
+}
 let db = null, fileBuf = null, cur = null, dirty = false, idle = null, clipT = null;
 const cred = pw => new kw.Credentials(kw.ProtectedValue.fromString(pw));
 const toAB = b => b instanceof ArrayBuffer ? b : b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
@@ -18,7 +48,13 @@ $("file").onchange = async e => { const f = e.target.files[0]; fileBuf = null; $
 $("pw").oninput = chk;
 async function unlock(buf, pw) {
   setErr(""); $("open").disabled = true; $("demo").disabled = true; setErr("Unlocking...");
-  try { db = await kw.Kdbx.load(toAB(buf), cred(pw)); setErr(""); show(); }
+  try {
+    lastKey = null; const ab = toAB(buf); db = await kw.Kdbx.load(ab, cred(pw));
+    let note = "";
+    try { if ((await checkFileEnd(ab, lastKey)) === "skipped") note = "The end of this file could not be integrity-checked (older file type)."; }
+    catch (x) { db = null; throw new Error("The end of this file failed its integrity check. It may be damaged or altered, so it was not opened."); }
+    finally { lastKey = null; }
+    setErr(""); show(); $("integ").textContent = note; }
   catch (x) { db = null; setErr(x && x.code === "InvalidKey" ? "Wrong password, or not a KeePass file." : (x && x.message) || "Could not open that file."); }
   $("pw").value = ""; $("demo").disabled = false; chk();
 }
