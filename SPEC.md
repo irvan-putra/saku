@@ -1,6 +1,6 @@
 # Saku - development checkpoint 5
 
-Status: synthetic UI scaffold and research/testing notes only. Not a usable password manager, not security-audited, and not licensed for redistribution at this checkpoint. The earlier documentation-only checkpoint remains in git history.
+Status: synthetic UI scaffold and research/testing notes only. Not a usable password manager and not security-audited. Licensed under the Apache License 2.0 (see `LICENSE`). The earlier documentation-only checkpoint remains in git history.
 
 ## Known broken protocol prototype: do not use
 
@@ -26,4 +26,3 @@ Explore a local-first Android password manager with manual local records, Androi
 - Complete atomic receive, replay/deduplication, rollback and conflict handling; do not treat the previous broken prototype as a starting implementation.
 - Continue format/interoperability, malformed-file, KDF bounds, memory, crash-safety, and real-device testing before choosing storage.
 - Test Android execution, Autofill, unlock, backup/restore, transport packaging, and device performance before making any such claims.
-- Select a project license before calling this an open-source licensed release.
