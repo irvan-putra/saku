@@ -122,7 +122,7 @@ jobs:
   native-x86_64:
     # BRANCH-ONLY test-native build: librpcsrv.so for x86_64-android, built
     # from pinned deltachat-core-rust v2.69.0 source (same version as the
-    # shipped arm64 pin from intodo) so an x86_64 emulator can execute the
+    # shipped arm64 pin from tindak) so an x86_64 emulator can execute the
     # sync bridge. Test-only artifact: the shipped arm64-v8a jniLib is
     # untouched. Provenance (core commit + .so sha256) goes to the summary.
     if: github.ref == 'refs/heads/sync-integration'

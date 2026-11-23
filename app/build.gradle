@@ -6,7 +6,7 @@ android {
     // Chaquopy requires an explicit abiFilters list. Both ABIs keep the APK
     // installable on the x86_64 CI emulator (widget harness) while the
     // bundled DeltaChat rpc server (src/main/jniLibs) ships arm64-v8a only,
-    // same constraint as intodo: the sync runtime is arm64-only at runtime.
+    // same constraint as tindak: the sync runtime is arm64-only at runtime.
     ndk { abiFilters 'arm64-v8a', 'x86_64' } }
   buildTypes { release { minifyEnabled false } }
   compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
@@ -40,8 +40,8 @@ tasks.withType(Test).configureEach { jvmArgs '--add-opens=java.base/java.util=AL
 dependencies { testImplementation "org.robolectric:robolectric:4.12.2" }
 
 // DeltaChat sync runtime (prototype, synthetic-only). Mirrors the proven
-// intodo pattern: encore fork pin + cryptography + bundled librpcsrv.so in
-// app/src/main/jniLibs/arm64-v8a (binary identical to intodo's pin).
+// tindak pattern: encore fork pin + cryptography + bundled librpcsrv.so in
+// app/src/main/jniLibs/arm64-v8a (binary identical to tindak's pin).
 chaquopy {
     defaultConfig {
         pip {

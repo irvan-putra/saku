@@ -21,7 +21,7 @@ until the real-secret readiness review.
   The arm64-v8a abiFilters is CHAQUOPY-SCOPED so the app's KeePassDX x86_64
   emulator crypto keeps working; `librpcsrv.so` exists for arm64 only, so
   the sync runtime itself is arm64-only (emulator sync tests are out until
-  an x86_64 rpc server exists - same constraint as intodo).
+  an x86_64 rpc server exists - same constraint as tindak).
 
 ## Transport lessons baked in (from the 2026-11-18 live test)
 
