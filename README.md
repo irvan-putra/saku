@@ -1,6 +1,6 @@
 # Saku
 
-Local-first Android password-manager project, with a proposed path to deliver newly created logins over Delta Chat. License selection is still pending; do not treat this project as an open-source licensed release.
+Local-first Android password-manager project, with a proposed path to deliver newly created logins over Delta Chat. Licensed under the Apache License 2.0 (see `LICENSE`), following the upstream KeePassJava2 library (org.linguafranca.pwdb).
 
 **Development checkpoint only. Do not use for real passwords, accounts, keys, or live sync.**
 
