@@ -5,7 +5,8 @@ const kw = window.kdbxweb;
 const LIMITS = {softMemKiB: 256 * 1024, memKiB: 1024 * 1024, iterations: 100, parallelism: 16}; /* hostile-KDF guards; values are a proposal for review */
 let lastKey = null; /* copy of the last Argon2 output, used only for the file-ending check below */
 kw.CryptoEngine.setArgon2Impl(async (password, salt, memory, iterations, length, parallelism, type) => {
-  if (memory > LIMITS.memKiB || iterations > LIMITS.iterations || parallelism > LIMITS.parallelism) throw new Error("This file asks for more key-stretching work than this page allows (memory " + Math.round(memory / 1024) + " MiB, " + iterations + " rounds). It was not opened.");
+  if (memory > LIMITS.memKiB || parallelism > LIMITS.parallelism) throw new Error("This file asks for more key-stretching work than this page allows (memory " + Math.round(memory / 1024) + " MiB, parallelism " + parallelism + "). It was not opened.");
+  if (iterations > LIMITS.iterations && !confirm("This vault asks for " + iterations + " rounds of key stretching - more than this page's usual limit of " + LIMITS.iterations + ". Opening it may freeze this page for a while. Continue?")) throw new Error("Cancelled: the vault needs " + iterations + " rounds of key stretching.");
   if (memory > LIMITS.softMemKiB && !confirm("This vault needs " + Math.round(memory / 1024) + " MiB of memory to unlock. That can crash a phone or a small browser tab. Continue?")) throw new Error("Cancelled: the vault needs " + Math.round(memory / 1024) + " MiB to unlock.");
   const fn = type === 2 ? window.hashwasm.argon2id : window.hashwasm.argon2d;
   let out;
