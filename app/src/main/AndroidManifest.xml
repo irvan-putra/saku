@@ -2,7 +2,7 @@
 <!-- MOCK BUILD: no permissions at all. INTERNET intentionally absent until
      protocol review sign-off. Autofill intentionally absent (not faked). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-  <application android:label="@string/app_label" android:icon="@mipmap/ic_launcher"
+  <application android:label="@string/app_label" android:icon="@drawable/ic_launcher"
       android:allowBackup="false" android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
     <activity android:name=".MainActivity" android:exported="true">
       <intent-filter>
