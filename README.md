@@ -47,3 +47,7 @@ Use JDK 17, Gradle 8.2.1, Android SDK 34, and build-tools 33.0.1. Configure an u
 - [KeePassDX reuse: baseline qualification and integration boundaries](docs/research/keepassdx-baseline-qualification.md) - pinned source review and negative-test targets; no fork, build, or real vault tested.
 - [Cryptography research checkpoint (2026-11-16)](investigations/crypto-research-20261116/RESEARCH.md) - source and library research only; no implementation choice, audit, license change, or usable password vault.
 - [Whole Android vault reuse versus KDBX library](investigations/vault-reuse-20261116/RESEARCH.md) - bounded source comparison; not an audit, implementation choice, or usable vault.
+
+---
+
+Built with AI assistance (Instinct and others). Not everything has been reviewed by Irvan.
