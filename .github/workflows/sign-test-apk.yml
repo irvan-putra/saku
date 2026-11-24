@@ -3,7 +3,8 @@ name: sign test apk
 # repo's tests and Gradle on the exact main commit with NO secrets and uploads the unsigned APK;
 # (3) sign: minimal job that holds the key, downloads that exact unsigned APK, checks its SHA-256,
 # signs and verifies it. No Gradle, pip or tests run in the signing job.
-# It never creates a release, tag or commit. A reviewed person attaches the APK to a release by hand.
+# This workflow only uploads a signed APK artifact; it does not create a release, tag or commit.
+# Publishing that artifact is a separate step; this workflow does not establish human review.
 # NOT ACTIVE until the saku signing key exists, its four secrets (SAKU_SIGNING_KEYSTORE_BASE64,
 # SAKU_SIGNING_STORE_PASSWORD, SAKU_SIGNING_KEY_PASSWORD, SAKU_SIGNING_KEY_ALIAS) are set, and the
 # release commit replaces the placeholder EXPECTED_CERT_SHA256 below with the key certificate digest.
